@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinosphere Rosetta - Interactive Mobile Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            hanviet: '#f59e0b', // Amber-500 for Hán-Việt anchors
+            semantic: '#10b981', // Emerald-500 for semantic components
+            phonetic: '#3b82f6', // Blue-500 for phonetic components
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar & Utility Classes */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    
+    /* Interlinear Ruby Annotation Styling */
+    ruby { ruby-position: over; }
+    rt { font-size: 0.65rem; font-weight: 700; color: #f59e0b; letter-spacing: 0.05em; transform: translateY(-2px); }
+    
+    /* Pulse Glow for Selected Graph Nodes */
+    .node-active { filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6)); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased flex justify-center items-center min-h-screen p-0 md:p-4">
+
+  <!-- Mobile Device Shell Frame -->
+  <div class="w-full max-w-md h-[100vh] md:h-[844px] bg-slate-900 md:rounded-[40px] border-0 md:border-8 border-slate-800 shadow-2xl flex flex-col overflow-hidden relative">
+    
+    <!-- Top Status Bar -->
+    <div class="px-6 pt-3 pb-2 flex justify-between items-center text-xs text-slate-400 select-none bg-slate-900 z-20">
+      <span class="font-semibold">9:41</span>
+      <div class="flex items-center space-x-2">
+        <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-mono font-bold">VN-EN</span>
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.22 19.54 10.57 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+      </div>
+    </div>
+
+    <!-- MAIN VIEW AREA (Dynamic Tab Content) -->
+    <div class="flex-1 overflow-y-auto relative pb-20" id="main-content">
+      
+      <!-- TAB 1: UNIFIED CHARACTER CARD -->
+      <section id="view-card" class="p-4 space-y-4">
+        <!-- Search Bar -->
+        <div class="relative">
+          <input type="text" id="search-input" placeholder="Search Character, Pinyin, Hán-Việt..." value="晨" 
+                 class="w-full bg-slate-800 border border-slate-700 rounded-2xl py-3 pl-11 pr-4 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 transition">
+          <svg class="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+
+        <!-- Primary Character Hero View -->
+        <div class="bg-gradient-to-br from-slate-800 to-slate-850 rounded-3xl p-5 border border-slate-700/60 shadow-lg relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl"></div>
+          
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="flex items-baseline space-x-3">
+                <h1 class="text-6xl font-bold text-white tracking-tight" id="card-symbol">晨</h1>
+                <span class="text-xl font-medium text-sky-400" id="card-pinyin">chén</span>
+              </div>
+              <div class="mt-2 flex items-center space-x-2">
+                <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Hán-Việt:</span>
+                <span class="text-lg font-bold text-amber-400 tracking-wide" id="card-hanviet">THẦN</span>
+              </div>
+            </div>
+            <button onclick="toggleBookmark()" id="bookmark-btn" class="p-2.5 bg-slate-700/50 hover:bg-slate-700 rounded-2xl text-slate-400 hover:text-amber-400 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+            </button>
+          </div>
+
+          <p class="mt-3 text-sm text-slate-300 font-medium" id="card-english">Morning, Dawn, Early daybreak</p>
+          
+          <!-- Quick Cognate Pills -->
+          <div class="mt-4 pt-3 border-t border-slate-700/50 flex space-x-4 text-xs text-slate-400">
+            <div><span class="text-slate-500">JP Onyomi:</span> <span class="text-slate-200">しん (shin)</span></div>
+            <div><span class="text-slate-500">KR Hanja:</span> <span class="text-slate-200">신 (sin)</span></div>
+            <div><span class="text-slate-500">HSK:</span> <span class="text-amber-400 font-bold">Level 4</span></div>
+          </div>
+        </div>
+
+        <!-- Component Decomposition Tree -->
+        <div class="bg-slate-800/60 rounded-3xl p-4 border border-slate-700/40 space-y-3">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <span>Structural Decomposition</span>
+            <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Chiết Tự Analysis</span>
+          </h3>
+
+          <div class="space-y-2">
+            <!-- Sub-component 1 -->
+            <div class="flex items-center justify-between p-2.5 bg-slate-900/80 rounded-2xl border border-slate-700/30">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xl font-bold text-emerald-400">日</div>
+                <div>
+                  <div class="text-sm font-bold text-slate-200">rì <span class="text-xs text-amber-400 font-semibold ml-1">NHẬT</span></div>
+                  <div class="text-xs text-slate-400">Sun / Day (Semantic Root)</div>
+                </div>
+              </div>
+              <span class="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-1 rounded-lg">Biểu ý</span>
+            </div>
+
+            <!-- Sub-component 2 -->
+            <div class="flex items-center justify-between p-2.5 bg-slate-900/80 rounded-2xl border border-slate-700/30">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-xl font-bold text-blue-400">辰</div>
+                <div>
+                  <div class="text-sm font-bold text-slate-200">chén <span class="text-xs text-amber-400 font-semibold ml-1">THẦN</span></div>
+                  <div class="text-xs text-slate-400">Time / Heavenly Body (Phonetic)</div>
+                </div>
+              </div>
+              <span class="text-[10px] bg-blue-500/10 text-blue-400 font-bold px-2 py-1 rounded-lg">Biểu âm</span>
+            </div>
+          </div>
+
+          <!-- Etymological Mnemonic Story -->
+          <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+            <div class="text-xs font-bold text-amber-400 mb-1 flex items-center space-x-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>Logic Chiết Tự:</span>
+            </div>
+            <p class="text-xs text-amber-200/90 leading-relaxed">
+              Mặt trời (<b>日</b> - Nhật) mọc nhô lên trên mốc thời gian cố định (<b>辰</b> - Thần) báo hiệu thời khắc bình minh vừa hé rạng.
+            </p>
+          </div>
+        </div>
+
+        <!-- Collocations & Compound Words -->
+        <div class="bg-slate-800/60 rounded-3xl p-4 border border-slate-700/40 space-y-2">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Frequent Compounds</h3>
+          
+          <div class="divide-y divide-slate-700/40">
+            <div class="py-2 flex justify-between items-center">
+              <div>
+                <span class="text-base font-bold text-slate-100">清晨</span>
+                <span class="text-xs text-sky-400 ml-2">qīng chén</span>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-bold text-amber-400 block">THANH THẦN</span>
+                <span class="text-xs text-slate-400">Early morning</span>
+              </div>
+            </div>
+            <div class="py-2 flex justify-between items-center">
+              <div>
+                <span class="text-base font-bold text-slate-100">晨昏</span>
+                <span class="text-xs text-sky-400 ml-2">chén hūn</span>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-bold text-amber-400 block">THẦN HÔN</span>
+                <span class="text-xs text-slate-400">Morning and evening</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: 3-TIER INTERACTIVE NODE GRAPH -->
+      <section id="view-graph" class="hidden p-4 h-full flex flex-col space-y-3">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-lg font-bold text-white">Component Graph</h2>
+            <p class="text-xs text-slate-400">Root Radical ➔ Characters ➔ Words</p>
+          </div>
+          <span class="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-xl font-bold">Bộ Thủ: 土 (Thổ)</span>
+        </div>
+
+        <!-- Interactive Canvas Area -->
+        <div class="flex-1 bg-slate-900 border border-slate-800 rounded-3xl relative overflow-hidden min-h-[380px] flex items-center justify-center">
+          <!-- Canvas SVG Lines connecting nodes -->
+          <svg class="absolute inset-0 w-full h-full stroke-slate-700/80" stroke-width="2">
+            <!-- Root to Tier 2 -->
+            <line x1="180" y1="60" x2="100" y2="160" />
+            <line x1="180" y1="60" x2="260" y2="160" />
+            <!-- Tier 2 to Tier 3 -->
+            <line x1="100" y1="160" x2="60" y2="280" />
+            <line x1="100" y1="160" x2="130" y2="280" />
+            <line x1="260" y1="160" x2="260" y2="280" />
+          </svg>
+
+          <!-- TIER 1: ROOT COMPONENT NODE -->
+          <div onclick="selectNode('土', 'Thổ', 'Earth / Soil', 'Root Component')" 
+               class="absolute top-6 left-1/2 -translate-x-1/2 w-16 h-16 bg-amber-500 rounded-2xl border-2 border-amber-300 flex flex-col items-center justify-center shadow-lg shadow-amber-500/20 cursor-pointer transform hover:scale-110 transition z-10">
+            <span class="text-2xl font-black text-slate-950">土</span>
+            <span class="text-[9px] font-bold text-slate-900 uppercase">THỔ</span>
+          </div>
+
+          <!-- TIER 2: DERIVED CHARACTERS -->
+          <div onclick="selectNode('城', 'Thành', 'City / Wall', 'Character')" 
+               class="absolute top-36 left-20 -translate-x-1/2 w-14 h-14 bg-emerald-600 rounded-2xl border-2 border-emerald-400 flex flex-col items-center justify-center shadow-md cursor-pointer hover:scale-110 transition z-10 node-active">
+            <span class="text-xl font-bold text-white">城</span>
+            <span class="text-[8px] font-bold text-emerald-200 uppercase">THÀNH</span>
+          </div>
+
+          <div onclick="selectNode('地', 'Địa', 'Ground / Earth', 'Character')" 
+               class="absolute top-36 right-20 translate-x-1/2 w-14 h-14 bg-emerald-600 rounded-2xl border-2 border-emerald-400 flex flex-col items-center justify-center shadow-md cursor-pointer hover:scale-110 transition z-10">
+            <span class="text-xl font-bold text-white">地</span>
+            <span class="text-[8px] font-bold text-emerald-200 uppercase">ĐỊA</span>
+          </div>
+
+          <!-- TIER 3: COMPOUND WORDS -->
+          <div onclick="selectNode('城市', 'Thành Thị', 'City / Metropolis', 'Compound Word')" 
+               class="absolute bottom-16 left-10 -translate-x-1/2 px-3 py-2 bg-slate-800 border border-sky-400/60 rounded-xl flex flex-col items-center shadow-sm cursor-pointer hover:scale-105 transition z-10">
+            <span class="text-sm font-bold text-sky-300">城市</span>
+            <span class="text-[8px] font-bold text-amber-400 uppercase">THÀNH THỊ</span>
+          </div>
+
+          <div onclick="selectNode('城堡', 'Thành Bảo', 'Castle / Fortress', 'Compound Word')" 
+               class="absolute bottom-16 left-32 -translate-x-1/2 px-3 py-2 bg-slate-800 border border-sky-400/60 rounded-xl flex flex-col items-center shadow-sm cursor-pointer hover:scale-105 transition z-10">
+            <span class="text-sm font-bold text-sky-300">城堡</span>
+            <span class="text-[8px] font-bold text-amber-400 uppercase">THÀNH BẢO</span>
+          </div>
+
+          <div onclick="selectNode('地下铁', 'Địa Hạ Thiết', 'Subway / Metro', 'Compound Word')" 
+               class="absolute bottom-16 right-16 translate-x-1/2 px-3 py-2 bg-slate-800 border border-sky-400/60 rounded-xl flex flex-col items-center shadow-sm cursor-pointer hover:scale-105 transition z-10">
+            <span class="text-sm font-bold text-sky-300">地下铁</span>
+            <span class="text-[8px] font-bold text-amber-400 uppercase">ĐỊA HẠ THIẾT</span>
+          </div>
+        </div>
+
+        <!-- Floating Graph Inspector Bar -->
+        <div id="graph-inspector" class="bg-slate-800 border border-slate-700 rounded-2xl p-3 flex justify-between items-center">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xl font-bold text-amber-400" id="node-symbol">城</span>
+              <span class="text-sm font-bold text-slate-100" id="node-hanviet">THÀNH</span>
+              <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-md" id="node-type">Character</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5" id="node-def">City Wall / Fortified Town</p>
+          </div>
+          <button onclick="switchTab('card')" class="text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-2 rounded-xl transition">
+            Inspect Card
+          </button>
+        </div>
+      </section>
+
+      <!-- TAB 3: SMART READER / LYRICS PARSER -->
+      <section id="view-reader" class="hidden p-4 space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-bold text-white">Smart Reader</h2>
+          <span class="text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded-xl font-semibold">Interlinear Hán-Việt Mode</span>
+        </div>
+
+        <!-- Article / Song Snippet Box -->
+        <div class="bg-slate-800/80 rounded-3xl p-5 border border-slate-700/60 space-y-6 leading-loose">
+          <div class="text-xs font-bold text-slate-400 border-b border-slate-700 pb-2">Snippet: 《这世界那么多人》</div>
+
+          <!-- Interactive Segmented Text -->
+          <div class="text-xl font-medium text-slate-100 tracking-wider flex flex-wrap gap-x-3 gap-y-6">
+            <ruby class="cursor-pointer hover:bg-slate-700/50 rounded px-1 transition" onclick="openReaderModal('这座', 'TÒA TẬP', 'This / This one')">
+              这座<rt>TÒA TẬP</rt>
+            </ruby>
+            <ruby class="cursor-pointer hover:bg-slate-700/50 rounded px-1 border-b-2 border-amber-500 transition" onclick="openReaderModal('城市', 'THÀNH THỊ', 'City / Metropolis')">
+              城市<rt>THÀNH THỊ</rt>
+            </ruby>
+            <ruby class="cursor-pointer hover:bg-slate-700/50 rounded px-1 transition" onclick="openReaderModal('的', 'ĐÍCH', 'Possessive particle')">
+              的<rt>ĐÍCH</rt>
+            </ruby>
+            <ruby class="cursor-pointer hover:bg-slate-700/50 rounded px-1 border-b-2 border-sky-400 transition" onclick="openReaderModal('夜景', 'DẠ CẢNH', 'Night view / Nightscape')">
+              夜景<rt>DẠ CẢNH</rt>
+            </ruby>
+            <ruby class="cursor-pointer hover:bg-slate-700/50 rounded px-1 transition" onclick="openReaderModal('非常', 'PHI THƯỜNG', 'Very / Extremely')">
+              非常<rt>PHI THƯỜNG</rt>
+            </ruby>
+            <ruby class="cursor-pointer hover:bg-slate-700/50 rounded px-1 transition" onclick="openReaderModal('美', 'MỸ', 'Beautiful')">
+              美<rt>MỸ</rt>
+            </ruby>
+            <span>。</span>
+          </div>
+
+          <p class="text-xs text-slate-400 italic pt-2 border-t border-slate-700/40">
+            Tap any word above to open the instant Hán-Việt semantic breakdown.
+          </p>
+        </div>
+
+        <!-- Custom Paste Input Area -->
+        <div class="bg-slate-800/40 rounded-3xl p-4 border border-slate-700/30 space-y-2">
+          <label class="text-xs font-bold text-slate-400 block">Paste Lyrics / Chinese Text:</label>
+          <textarea rows="3" placeholder="Paste custom text here to auto-annotate..." 
+                    class="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"></textarea>
+          <button class="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold text-amber-400 rounded-xl transition">
+            Annotate Hán-Việt Subtitles
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- READER TAP-TO-LOOKUP BOTTOM SHEET MODAL -->
+    <div id="reader-modal" class="absolute inset-x-0 bottom-0 bg-slate-800 border-t border-slate-700 rounded-t-3xl p-5 shadow-2xl transition-transform transform translate-y-full z-30 space-y-3">
+      <div class="w-12 h-1 bg-slate-600 rounded-full mx-auto mb-2"></div>
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="flex items-baseline space-x-2">
+            <h3 class="text-3xl font-bold text-white" id="modal-word">城市</h3>
+            <span class="text-sm font-bold text-amber-400" id="modal-hanviet">THÀNH THỊ</span>
+          </div>
+          <p class="text-xs text-slate-300 mt-1" id="modal-def">City, Metropolis</p>
+        </div>
+        <button onclick="closeReaderModal()" class="text-slate-400 hover:text-white p-1">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="pt-2 flex space-x-2">
+        <button onclick="closeReaderModal(); switchTab('card');" class="flex-1 py-2.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl hover:bg-amber-400 transition">
+          Full Character Card
+        </button>
+      </div>
+    </div>
+
+    <!-- BOTTOM NAVIGATION BAR -->
+    <nav class="absolute bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-6 py-3 flex justify-between items-center z-20">
+      <button onclick="switchTab('card')" id="nav-card" class="flex flex-col items-center text-amber-400 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        <span class="text-[10px] font-bold mt-1">Dict Card</span>
+      </button>
+
+      <button onclick="switchTab('graph')" id="nav-graph" class="flex flex-col items-center text-slate-500 hover:text-slate-300 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12H4z"/></svg>
+        <span class="text-[10px] font-bold mt-1">Graph</span>
+      </button>
+
+      <button onclick="switchTab('reader')" id="nav-reader" class="flex flex-col items-center text-slate-500 hover:text-slate-300 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span class="text-[10px] font-bold mt-1">Reader</span>
+      </button>
+
+      <button class="flex flex-col items-center text-slate-500 hover:text-slate-300 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+        <span class="text-[10px] font-bold mt-1">Decks</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- INTERACTIVE PROTOTYPE CONTROLLER LOGIC -->
+  <script>
+    function switchTab(tabName) {
+      // Hide all view sections
+      document.getElementById('view-card').classList.add('hidden');
+      document.getElementById('view-graph').classList.add('hidden');
+      document.getElementById('view-reader').classList.add('hidden');
+
+      // Reset Nav Button Styles
+      ['card', 'graph', 'reader'].forEach(tab => {
+        const btn = document.getElementById(`nav-${tab}`);
+        btn.classList.remove('text-amber-400');
+        btn.classList.add('text-slate-500');
+      });
+
+      // Show selected tab & highlight nav
+      document.getElementById(`view-${tabName}`).classList.remove('hidden');
+      const activeNav = document.getElementById(`nav-${tabName}`);
+      activeNav.classList.remove('text-slate-500');
+      activeNav.classList.add('text-amber-400');
+    }
+
+    function selectNode(symbol, hanviet, def, type) {
+      document.getElementById('node-symbol').innerText = symbol;
+      document.getElementById('node-hanviet').innerText = hanviet.toUpperCase();
+      document.getElementById('node-def').innerText = def;
+      document.getElementById('node-type').innerText = type;
+    }
+
+    function openReaderModal(word, hanviet, def) {
+      document.getElementById('modal-word').innerText = word;
+      document.getElementById('modal-hanviet').innerText = hanviet;
+      document.getElementById('modal-def').innerText = def;
+      document.getElementById('reader-modal').classList.remove('translate-y-full');
+    }
+
+    function closeReaderModal() {
+      document.getElementById('reader-modal').classList.add('translate-y-full');
+    }
+
+    function toggleBookmark() {
+      const btn = document.getElementById('bookmark-btn');
+      btn.classList.toggle('text-amber-400');
+    }
+  </script>
+</body>
+</html>

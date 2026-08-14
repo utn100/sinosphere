@@ -1,0 +1,2338 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinosphere Rosetta — Full Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            hanviet: '#f59e0b',
+            semantic: '#10b981',
+            phonetic: '#3b82f6',
+            iconic: '#a855f7',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ruby { ruby-position: over; display: inline-flex; flex-direction: column-reverse; align-items: center; }
+    rt { font-size: 0.6rem; font-weight: 800; color: #f59e0b; letter-spacing: 0.06em; line-height: 1.2; }
+    .node-glow { filter: drop-shadow(0 0 10px rgba(245,158,11,0.7)); }
+    .tier1-node { filter: drop-shadow(0 0 12px rgba(245,158,11,0.5)); }
+    .tier2-node { filter: drop-shadow(0 0 8px rgba(16,185,129,0.4)); }
+    .tier3-node { filter: drop-shadow(0 0 6px rgba(56,189,248,0.3)); }
+    .slide-up { animation: slideUp 0.25s cubic-bezier(0.32,0.72,0,1) forwards; }
+    .slide-down { animation: slideDown 0.22s cubic-bezier(0.32,0.72,0,1) forwards; }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes slideDown { from { transform: translateY(0); } to { transform: translateY(100%); } }
+    .fade-in { animation: fadeIn 0.18s ease forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+    .edge-line { stroke: #334155; stroke-width: 1.5; fill: none; }
+    .edge-active { stroke: #f59e0b; stroke-width: 2; opacity: 0.6; }
+    .search-result-item:hover { background: rgba(51,65,85,0.6); }
+    .compact-char { font-family: 'Noto Serif CJK SC', 'SimSun', serif; }
+    .tone-mark { color: #94a3b8; font-size: 0.7rem; }
+    .graph-canvas { cursor: grab; user-select: none; }
+    .graph-canvas:active { cursor: grabbing; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased flex justify-center items-start min-h-screen p-0 md:p-6">
+
+<!-- ────────────────────────────────────────────
+     MOBILE DEVICE SHELL
+──────────────────────────────────────────── -->
+<div id="app-shell" class="w-full max-w-[393px] h-[100svh] md:h-[852px] bg-slate-900 md:rounded-[44px] border-0 md:border-[10px] border-slate-700 shadow-[0_40px_80px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden relative">
+
+  <!-- STATUS BAR -->
+  <div class="px-6 pt-3 pb-1.5 flex justify-between items-center text-[11px] text-slate-400 select-none bg-slate-900 z-20 shrink-0">
+    <span class="font-semibold tabular-nums">9:41</span>
+    <div class="flex items-center space-x-1.5">
+      <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-md font-mono font-bold tracking-wider">VN-EN</span>
+      <svg class="w-3.5 h-3.5 fill-slate-400" viewBox="0 0 24 24"><path d="M1.5 8.5C4.13 5.86 7.86 4 12 4s7.87 1.86 10.5 4.5l-2.1 2.1C18.26 8.46 15.26 7 12 7s-6.26 1.46-8.4 3.6L1.5 8.5zM12 13a3 3 0 00-3 3h6a3 3 0 00-3-3zm-4.2-1.8l2.1 2.1A3.5 3.5 0 0112 12a3.5 3.5 0 012.1.3l2.1-2.1A7.03 7.03 0 0012 9a7.03 7.03 0 00-4.2 2.2z"/></svg>
+      <svg class="w-3.5 h-3.5 fill-slate-400" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/><rect x="4" y="9" width="11" height="7" rx="1" fill="#10b981"/><path d="M22 11v3h-2v-3h2z" fill="currentColor"/></svg>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT AREA -->
+  <div class="flex-1 overflow-hidden relative">
+
+    <!-- ══════════════════════════════════════
+         TAB 1: DICTIONARY / CHARACTER CARD
+    ══════════════════════════════════════ -->
+    <div id="view-card" class="absolute inset-0 overflow-y-auto pb-24 fade-in">
+      <div class="p-4 space-y-3">
+
+        <!-- Search Bar -->
+        <div class="relative">
+          <input type="text" id="search-input"
+                 placeholder="Search: 晨 / chén / morning / THẦN..."
+                 class="w-full bg-slate-800 border border-slate-700 rounded-2xl py-3 pl-11 pr-10 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/30 transition"
+                 oninput="handleSearch(this.value)" onfocus="showSearchResults()" />
+          <svg class="w-5 h-5 text-slate-500 absolute left-3.5 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <button onclick="clearSearch()" id="clear-btn" class="absolute right-3 top-3 text-slate-500 hover:text-slate-300 hidden">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Search Results Dropdown -->
+        <div id="search-results" class="hidden bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-xl z-30">
+          <div id="search-list" class="divide-y divide-slate-700/50 max-h-52 overflow-y-auto"></div>
+        </div>
+
+        <!-- Last selected word chip — tap to reopen sheet -->
+        <div id="last-word-chip" class="hidden">
+          <button onclick="reopenWordSheet()"
+            class="flex items-center space-x-2 bg-slate-800 border border-slate-700/60 rounded-2xl px-3 py-2 w-full hover:border-amber-500/40 transition group">
+            <div class="w-7 h-7 bg-slate-700 rounded-lg flex items-center justify-center text-sm font-bold text-slate-200 compact-char shrink-0" id="chip-word"></div>
+            <div class="flex-1 min-w-0 text-left">
+              <span class="text-[11px] text-amber-400 font-black tracking-wide" id="chip-hanviet"></span>
+              <span class="text-[11px] text-slate-500 ml-1.5" id="chip-def"></span>
+            </div>
+            <svg class="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- CHARACTER HERO CARD -->
+        <div class="bg-gradient-to-br from-slate-800 via-slate-800 to-slate-900 rounded-3xl p-5 border border-slate-700/60 shadow-xl relative overflow-hidden">
+          <div class="absolute -top-4 -right-4 w-40 h-40 bg-amber-500/8 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute -bottom-6 -left-6 w-28 h-28 bg-sky-500/5 rounded-full blur-2xl pointer-events-none"></div>
+
+          <div class="flex justify-between items-start relative z-10">
+            <div class="space-y-2">
+              <div class="flex items-baseline space-x-3">
+                <h1 class="text-7xl font-bold text-white leading-none compact-char" id="card-symbol">晨</h1>
+                <div>
+                  <div class="text-xl font-medium text-sky-400" id="card-pinyin">chén</div>
+                  <div class="text-[11px] text-slate-500 mt-0.5">Mandarin · Pinyin</div>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Hán-Việt</span>
+                <span class="text-2xl font-black text-amber-400 tracking-wider" id="card-hanviet">THẦN</span>
+              </div>
+            </div>
+            <div class="flex flex-col items-end space-y-2">
+              <button onclick="toggleBookmark()" id="bookmark-btn"
+                      class="p-2.5 bg-slate-700/60 hover:bg-slate-700 rounded-2xl text-slate-400 hover:text-amber-400 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+                </svg>
+              </button>
+              <span id="card-hsk" class="text-[10px] bg-amber-500/20 text-amber-400 font-bold px-2 py-1 rounded-xl">HSK 4</span>
+            </div>
+          </div>
+
+          <p class="mt-3 text-sm text-slate-200 font-medium leading-snug" id="card-english">Morning, Dawn, Early daybreak</p>
+
+          <!-- Cross-linguistic cognates -->
+          <div class="mt-4 pt-3 border-t border-slate-700/40 grid grid-cols-3 gap-2 text-xs">
+            <div class="bg-slate-900/50 rounded-xl px-2 py-1.5 text-center">
+              <div class="text-slate-500 text-[9px] uppercase tracking-wider font-semibold mb-0.5">JP Onyomi</div>
+              <div class="text-slate-200 font-semibold" id="card-jp">しん (shin)</div>
+            </div>
+            <div class="bg-slate-900/50 rounded-xl px-2 py-1.5 text-center">
+              <div class="text-slate-500 text-[9px] uppercase tracking-wider font-semibold mb-0.5">KR Hanja</div>
+              <div class="text-slate-200 font-semibold" id="card-kr">신 (sin)</div>
+            </div>
+            <div class="bg-slate-900/50 rounded-xl px-2 py-1.5 text-center">
+              <div class="text-slate-500 text-[9px] uppercase tracking-wider font-semibold mb-0.5">Strokes</div>
+              <div class="text-slate-200 font-semibold" id="card-strokes">11</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STRUCTURAL DECOMPOSITION TREE -->
+        <div class="bg-slate-800/60 rounded-3xl p-4 border border-slate-700/40 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Structural Decomposition</h3>
+            <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-semibold">Chiết Tự</span>
+          </div>
+
+          <div id="components-list" class="space-y-2"></div>
+
+          <!-- Etymology story box -->
+          <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+            <div class="flex items-center space-x-1.5 mb-1.5">
+              <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              <span class="text-[11px] font-bold text-amber-400">Logic Chiết Tự:</span>
+            </div>
+            <p class="text-xs text-amber-200/85 leading-relaxed" id="card-etymology">
+              Mặt trời (<b>日</b> - Nhật) mọc nhô lên trên mốc thời gian cố định (<b>辰</b> - Thần) báo hiệu thời khắc bình minh vừa hé rạng.
+            </p>
+          </div>
+        </div>
+
+        <!-- COMPOUND WORDS -->
+        <div class="bg-slate-800/60 rounded-3xl p-4 border border-slate-700/40 space-y-2">
+          <div class="flex items-center justify-between mb-1">
+            <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Frequent Compounds</h3>
+            <span class="text-[10px] text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full font-semibold" id="compound-count">4 words</span>
+          </div>
+          <div id="compounds-list" class="divide-y divide-slate-700/30"></div>
+        </div>
+
+        <!-- GRAPH PREVIEW TEASER -->
+        <button onclick="exploreCharGraph()"
+                class="w-full bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border border-emerald-800/50 rounded-2xl p-3.5 flex items-center justify-between hover:border-emerald-600/50 transition group">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+            </div>
+            <div class="text-left">
+              <div class="text-sm font-bold text-slate-200">Explore Component Graph</div>
+              <div class="text-[11px] text-slate-500" id="graph-teaser-label">3-tier radical network visualization</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         TAB 2: NODE GRAPH EXPLORER
+    ══════════════════════════════════════ -->
+    <div id="view-graph" class="absolute inset-0 hidden flex-col pb-20">
+      <div class="p-4 pb-2 space-y-3 shrink-0">
+        <!-- Header + Radical Switcher -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-white leading-tight">Component Graph</h2>
+            <p class="text-[11px] text-slate-500">Root Component → Characters → Compounds</p>
+          </div>
+          <button onclick="toggleRadicalPicker()" id="radical-picker-btn"
+                  class="flex items-center space-x-1.5 bg-amber-500/20 border border-amber-500/30 hover:bg-amber-500/30 text-amber-400 text-xs font-bold px-3 py-1.5 rounded-xl transition">
+            <span id="active-radical-label">土 · Thổ</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+        </div>
+
+        <!-- Radical Picker Panel (collapsible) -->
+        <div id="radical-picker" class="hidden bg-slate-800 border border-slate-700/60 rounded-2xl overflow-hidden">
+          <div class="px-3 pt-3 pb-1">
+            <p class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Select a Root Radical (Bộ Thủ)</p>
+            <div class="grid grid-cols-6 gap-1.5" id="radical-grid"></div>
+          </div>
+          <div class="px-3 py-2 border-t border-slate-700/50 text-[10px] text-slate-500 text-center">214 radicals in full index · showing common set</div>
+        </div>
+
+        <!-- Filter Toggle -->
+        <div class="flex items-center space-x-1.5 bg-slate-800/80 border border-slate-700/60 rounded-2xl p-1">
+          <button onclick="setGraphFilter('all')" id="filter-all"
+                  class="graph-filter flex-1 text-[11px] font-bold px-3 py-1.5 rounded-xl transition bg-slate-700 text-slate-100">
+            All words
+          </button>
+          <button onclick="setGraphFilter('high')" id="filter-high"
+                  class="graph-filter flex-1 text-[11px] font-bold px-3 py-1.5 rounded-xl transition text-slate-400">
+            <span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1 mb-px"></span>Strong cognates
+          </button>
+          <button onclick="setGraphFilter('learned')" id="filter-learned"
+                  class="graph-filter flex-1 text-[11px] font-bold px-3 py-1.5 rounded-xl transition text-slate-400">
+            <span class="inline-block w-1.5 h-1.5 rounded-full bg-violet-400 mr-1 mb-px"></span>My words
+          </button>
+        </div>
+
+        <!-- Tier Legend + Add Word button -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3 text-[10px]">
+            <div class="flex items-center space-x-1"><div class="w-3 h-3 rounded-md bg-amber-500"></div><span class="text-slate-400 font-medium">Root</span></div>
+            <div class="flex items-center space-x-1"><div class="w-3 h-3 rounded-md bg-emerald-500"></div><span class="text-slate-400 font-medium">Character</span></div>
+            <div class="flex items-center space-x-1"><div class="w-3 h-3 rounded-md bg-sky-700 border border-sky-400/50"></div><span class="text-slate-400 font-medium">Compound</span></div>
+            <div class="flex items-center space-x-1"><div class="w-3 h-3 rounded-md border-2 border-dashed border-violet-400 bg-violet-500/10"></div><span class="text-slate-400 font-medium">Learned</span></div>
+          </div>
+          <button onclick="openAddWordModal()"
+                  class="flex items-center space-x-1 bg-violet-500/20 border border-violet-500/40 hover:bg-violet-500/30 text-violet-400 text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <span>Add word</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- SVG Graph Canvas -->
+      <div class="flex-1 relative overflow-hidden mx-4 mb-2 bg-slate-950/70 border border-slate-800 rounded-3xl min-h-[260px]">
+        <svg id="graph-svg" class="absolute inset-0 w-full h-full graph-canvas" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#334155"/>
+            </marker>
+          </defs>
+          <g id="graph-edges"></g>
+          <g id="graph-nodes"></g>
+        </svg>
+      </div>
+
+      <!-- Graph Inspector Bar -->
+      <div id="graph-inspector" class="mx-4 mb-2 bg-slate-800 border border-slate-700/60 rounded-2xl p-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-3 min-w-0">
+          <span class="text-3xl font-black text-amber-400 compact-char leading-none" id="insp-symbol">土</span>
+          <div class="min-w-0">
+            <div class="flex items-center space-x-2 flex-wrap gap-y-0.5">
+              <span class="text-xs font-bold text-slate-100" id="insp-pinyin">tǔ</span>
+              <span class="text-sm font-black text-amber-400 tracking-wide" id="insp-hanviet">THỔ</span>
+              <span class="text-[9px] bg-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded-md" id="insp-type">Root</span>
+            </div>
+            <p class="text-[11px] text-slate-400 truncate mt-0.5" id="insp-def">Earth, soil, ground</p>
+          </div>
+        </div>
+        <button onclick="inspectFull()" class="shrink-0 text-[11px] bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-2 rounded-xl transition ml-2">
+          Full Card
+        </button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         TAB 3: SMART READER / LYRICS PARSER
+    ══════════════════════════════════════ -->
+    <div id="view-reader" class="absolute inset-0 hidden overflow-y-auto pb-24">
+      <div class="p-4 space-y-3">
+
+        <!-- Header row -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-white">Smart Reader</h2>
+            <p class="text-[11px] text-slate-500">Interlinear Hán-Việt annotation</p>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <button onclick="setReaderMode('hanviet')" id="mode-hanviet"
+                    class="text-[10px] px-2.5 py-1 rounded-xl font-bold transition bg-amber-500/20 text-amber-400 border border-amber-500/30">HV</button>
+            <button onclick="setReaderMode('pinyin')" id="mode-pinyin"
+                    class="text-[10px] px-2.5 py-1 rounded-xl font-bold transition bg-slate-700/50 text-slate-400 border border-slate-700">PY</button>
+            <button onclick="toggleHistoryPanel()" id="history-btn"
+                    class="text-[10px] px-2.5 py-1 rounded-xl font-bold transition bg-slate-700/50 text-slate-400 border border-slate-700 flex items-center space-x-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>History</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Reading History Panel (collapsible) — replaced by full overlay, div kept as anchor -->
+
+        <!-- Snippet tabs (seeded + history) -->
+        <div class="flex space-x-2 overflow-x-auto pb-1" id="snippet-tabs">
+          <button onclick="loadSnippet(0)" class="snippet-tab shrink-0 text-[11px] px-3 py-1.5 rounded-xl font-semibold transition bg-amber-500/20 text-amber-400 border border-amber-500/30">《这世界》</button>
+          <button onclick="loadSnippet(1)" class="snippet-tab shrink-0 text-[11px] px-3 py-1.5 rounded-xl font-semibold transition bg-slate-700/50 text-slate-400 border border-slate-700">《夜曲》</button>
+          <button onclick="loadSnippet(2)" class="snippet-tab shrink-0 text-[11px] px-3 py-1.5 rounded-xl font-semibold transition bg-slate-700/50 text-slate-400 border border-slate-700">Custom</button>
+        </div>
+
+        <!-- Annotated Reading Area -->
+        <div class="bg-slate-800/70 rounded-3xl p-5 border border-slate-700/50 min-h-36">
+          <div class="text-[10px] font-bold text-slate-500 border-b border-slate-700/50 pb-2 mb-4 flex justify-between items-center">
+            <span id="snippet-title">《这世界那么多人》· Snippet</span>
+            <span class="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md text-[10px]">Segmented</span>
+          </div>
+          <div id="reader-text" class="text-xl font-medium text-slate-100 tracking-wider flex flex-wrap items-end gap-x-2 gap-y-6 leading-none"></div>
+          <p class="text-[11px] text-slate-500 italic pt-4 mt-3 border-t border-slate-700/30">Tap any word for breakdown · long-press to add to graph.</p>
+        </div>
+
+        <!-- Vocabulary Harvest Panel (shown after annotation) -->
+        <div id="harvest-panel" class="hidden bg-slate-800/60 rounded-3xl border border-slate-700/40 overflow-hidden">
+          <div class="px-4 pt-3 pb-2 flex items-center justify-between border-b border-slate-700/40">
+            <div>
+              <h4 class="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Vocabulary Harvest</h4>
+              <p class="text-[10px] text-slate-500 mt-0.5" id="harvest-summary">0 unique words found</p>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <button onclick="addStarredToGraph()"
+                      class="text-[10px] font-bold px-2.5 py-1.5 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl hover:bg-emerald-500/30 transition">
+                Add starred → Graph
+              </button>
+              <button onclick="document.getElementById('harvest-panel').classList.add('hidden')"
+                      class="p-1 text-slate-600 hover:text-slate-300">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Resonance filter tabs -->
+          <div class="flex border-b border-slate-700/40">
+            <button onclick="setHarvestFilter('all')" id="hf-all"
+                    class="harvest-filter flex-1 text-[10px] font-bold py-2 border-b-2 border-amber-500 text-amber-400 transition">All</button>
+            <button onclick="setHarvestFilter('high')" id="hf-high"
+                    class="harvest-filter flex-1 text-[10px] font-bold py-2 border-b-2 border-transparent text-slate-500 transition">● Strong HV</button>
+            <button onclick="setHarvestFilter('new')" id="hf-new"
+                    class="harvest-filter flex-1 text-[10px] font-bold py-2 border-b-2 border-transparent text-slate-500 transition">New to graph</button>
+          </div>
+
+          <div id="harvest-list" class="divide-y divide-slate-700/30 max-h-52 overflow-y-auto"></div>
+        </div>
+
+        <!-- Custom Text Input -->
+        <div class="bg-slate-800/40 rounded-3xl p-4 border border-slate-700/30 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Paste Chinese Text</label>
+            <span class="text-[10px] text-slate-600">Saved to history automatically</span>
+          </div>
+          <input id="custom-title-input" type="text" placeholder="Title (optional — e.g. song name)"
+                 class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-amber-500/60 transition" />
+          <textarea id="custom-text-input" rows="3"
+                    placeholder="粘贴歌词或文章... (paste lyrics or article snippet)"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500/60 resize-none transition"></textarea>
+          <button onclick="annotateCustomText()"
+                  class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 text-xs font-black rounded-xl transition">
+            Annotate · Extract Vocabulary
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         TAB 4: DECKS & SETTINGS
+    ══════════════════════════════════════ -->
+    <div id="view-decks" class="absolute inset-0 hidden overflow-y-auto pb-24">
+      <div class="p-4 space-y-4">
+
+        <!-- Profile Header -->
+        <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-4 border border-slate-700/60 flex items-center space-x-4">
+          <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl">🏮</div>
+          <div>
+            <div class="font-bold text-slate-100 text-base">Sinosphere Learner</div>
+            <div class="text-[11px] text-slate-500">Vietnamese-English · HSK 4 · TOPIK 3</div>
+            <div class="flex items-center space-x-3 mt-1.5 text-[11px]">
+              <span class="text-amber-400 font-bold" id="deck-saved-count">8 <span class="text-slate-500 font-normal">saved</span></span>
+              <span class="text-emerald-400 font-bold" id="deck-total-count">19 <span class="text-slate-500 font-normal">collections</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- HSK Collections -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">HSK Levels</h3>
+            <span class="text-[10px] text-slate-600">Tap to browse · 11,000 words total</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2" id="hsk-deck-grid"></div>
+        </div>
+
+        <!-- Topic Collections -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Topic Collections</h3>
+            <span class="text-[10px] text-slate-600">Curated by Hán-Việt resonance</span>
+          </div>
+          <div id="topic-deck-list" class="space-y-2"></div>
+        </div>
+
+        <!-- My Collections -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">My Collections</h3>
+            <span class="text-[10px] text-violet-400 font-semibold" id="user-deck-count">0 custom</span>
+          </div>
+          <div id="user-deck-list" class="space-y-2"></div>
+          <button onclick="createDeck()"
+                  class="w-full py-3 border-2 border-dashed border-slate-700 hover:border-violet-500/40 hover:bg-violet-500/5 rounded-2xl text-[12px] font-semibold text-slate-500 hover:text-violet-400 transition flex items-center justify-center space-x-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span>New Collection</span>
+          </button>
+        </div>
+
+        <!-- Recently Bookmarked -->
+        <div class="space-y-2">
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">Recently Bookmarked</h3>
+          <div id="bookmarks-grid" class="grid grid-cols-5 gap-2"></div>
+        </div>
+
+        <!-- Export -->
+        <div class="bg-slate-800/50 rounded-2xl p-3.5 border border-slate-700/40 space-y-2.5">
+          <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Export Options</h4>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="py-2.5 bg-sky-500/15 border border-sky-500/20 text-sky-400 text-[11px] font-bold rounded-xl hover:bg-sky-500/25 transition">Anki Deck (.apkg)</button>
+            <button class="py-2.5 bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold rounded-xl hover:bg-emerald-500/25 transition">CSV Flashcards</button>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="space-y-2">
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">Preferences</h3>
+          <div class="bg-slate-800/50 rounded-2xl border border-slate-700/40 divide-y divide-slate-700/30 overflow-hidden">
+            <div class="px-4 py-3 flex items-center justify-between">
+              <div><div class="text-sm font-semibold text-slate-200">Dark Mode</div><div class="text-[11px] text-slate-500">System default</div></div>
+              <div class="w-11 h-6 bg-amber-500 rounded-full relative cursor-pointer" onclick="toggleSetting(this)">
+                <div class="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow"></div>
+              </div>
+            </div>
+            <div class="px-4 py-3 flex items-center justify-between">
+              <div><div class="text-sm font-semibold text-slate-200">Show Pinyin</div><div class="text-[11px] text-slate-500">Always visible in reader</div></div>
+              <div class="w-11 h-6 bg-slate-600 rounded-full relative cursor-pointer" onclick="toggleSetting(this)">
+                <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow"></div>
+              </div>
+            </div>
+            <div class="px-4 py-3 flex items-center justify-between">
+              <div><div class="text-sm font-semibold text-slate-200">Sino-Korean Mode</div><div class="text-[11px] text-slate-500">Show Hanja expansions (P2)</div></div>
+              <div class="w-11 h-6 bg-slate-700 rounded-full relative cursor-pointer flex items-center px-1">
+                <span class="text-[9px] font-bold text-slate-500">SOON</span>
+              </div>
+            </div>
+            <div class="px-4 py-3 flex items-center justify-between">
+              <div><div class="text-sm font-semibold text-slate-200">Database</div><div class="text-[11px] text-emerald-400">Offline · 87.4 MB used</div></div>
+              <button class="text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold px-3 py-1.5 rounded-xl transition">Sync</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-center py-3 space-y-1">
+          <div class="text-[11px] text-slate-600">Sinosphere Rosetta v1.0.0 — Prototype</div>
+          <div class="text-[10px] text-slate-700">Data: Unihan · CC-CEDICT · Hán-Việt DB · MakeMeHanzi</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- end main-content -->
+
+  <!-- ══════════════════════════════════════
+       BOTTOM SHEET: READER WORD LOOKUP
+  ══════════════════════════════════════ -->
+  <div id="reader-modal" class="absolute inset-x-0 bottom-0 z-40 bg-slate-800 border-t border-slate-700 rounded-t-[28px] shadow-[0_-20px_60px_rgba(0,0,0,0.6)] translate-y-full transition-transform duration-250 ease-out flex flex-col" style="max-height:85%">
+    <!-- Drag handle -->
+    <div class="w-12 h-1 bg-slate-600 rounded-full mx-auto mt-3 mb-0 shrink-0"></div>
+
+    <!-- Scrollable word info -->
+    <div class="overflow-y-auto p-4 space-y-2.5 flex-1 min-h-0">
+      <div class="flex justify-between items-start">
+        <div class="space-y-0.5">
+          <div class="flex items-baseline space-x-3">
+            <h3 class="text-4xl font-bold text-white compact-char" id="modal-word">城市</h3>
+            <span class="text-lg font-black text-amber-400 tracking-wider" id="modal-hanviet">THÀNH THỊ</span>
+          </div>
+          <div class="text-sm text-sky-400 font-medium" id="modal-pinyin">chéng shì</div>
+          <p class="text-sm text-slate-300" id="modal-def">City, Metropolis, Urban area</p>
+        </div>
+        <button onclick="closeReaderModal()" class="p-2 text-slate-500 hover:text-slate-200 transition rounded-xl hover:bg-slate-700 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <!-- Component pills -->
+      <div id="modal-components" class="flex space-x-2 overflow-x-auto pb-1"></div>
+      <!-- Graph status -->
+      <div id="modal-graph-status" class="hidden text-[11px] px-3 py-1.5 rounded-xl flex items-center space-x-1.5"></div>
+    </div>
+
+    <!-- Action buttons — sticky footer, always visible -->
+    <div class="shrink-0 px-4 pb-24 pt-2 border-t border-slate-700/50 space-y-2 bg-slate-800">
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="openFullCard()"
+                class="py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition">
+          Full Card
+        </button>
+        <button onclick="addModalWordToGraph()" id="modal-add-graph-btn"
+                class="py-2.5 bg-emerald-500/20 border border-emerald-500/30 hover:bg-emerald-500/30 text-emerald-400 font-bold text-xs rounded-xl transition">
+          + Add to Graph
+        </button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="bookmarkFromModal()"
+                class="py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-amber-400 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+          <span>Bookmark</span>
+        </button>
+        <button onclick="saveToDeckFromModal()"
+                class="py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-violet-400 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          <span>Save to Deck</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       READING HISTORY OVERLAY
+  ══════════════════════════════════════ -->
+  <div id="history-overlay" class="absolute inset-0 z-40 hidden flex-col bg-slate-900">
+    <!-- Header -->
+    <div class="px-4 pt-4 pb-3 flex items-center justify-between border-b border-slate-800 shrink-0">
+      <button onclick="closeHistoryOverlay()" class="flex items-center space-x-2 text-slate-400 hover:text-slate-100 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        <span class="text-sm font-semibold">Back</span>
+      </button>
+      <h2 class="text-sm font-bold text-slate-100">Reading History</h2>
+      <button onclick="clearHistory()" class="text-[11px] text-slate-600 hover:text-red-400 transition font-semibold">Clear all</button>
+    </div>
+
+    <!-- Empty state -->
+    <div id="history-empty" class="hidden flex-1 flex flex-col items-center justify-center space-y-3 text-center px-8">
+      <div class="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center text-2xl">📖</div>
+      <p class="text-sm font-semibold text-slate-400">No reading history yet</p>
+      <p class="text-[11px] text-slate-600">Paste and annotate a text — it will appear here so you can return to it any time.</p>
+    </div>
+
+    <!-- History list -->
+    <div id="history-list" class="flex-1 overflow-y-auto divide-y divide-slate-800"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       ADD WORD MODAL (Graph)
+  ══════════════════════════════════════ -->
+  <div id="add-word-modal" class="absolute inset-0 z-50 hidden flex items-end justify-center">
+    <div class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onclick="closeAddWordModal()"></div>
+    <div class="relative w-full bg-slate-800 border-t border-slate-700 rounded-t-[28px] shadow-2xl p-5 space-y-4">
+      <div class="w-12 h-1 bg-slate-600 rounded-full mx-auto -mt-1"></div>
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold text-white">Add a learned word</h3>
+          <p class="text-[11px] text-slate-500 mt-0.5">It will appear as a new node on the graph</p>
+        </div>
+        <button onclick="closeAddWordModal()" class="p-2 text-slate-500 hover:text-slate-200 rounded-xl hover:bg-slate-700 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Form fields -->
+      <div class="space-y-2.5">
+        <div class="grid grid-cols-2 gap-2">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chinese *</label>
+            <input id="aw-chinese" type="text" maxlength="4" placeholder="e.g. 明星"
+                   class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500/60 transition" />
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pinyin *</label>
+            <input id="aw-pinyin" type="text" placeholder="e.g. míng xīng"
+                   class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500/60 transition" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hán-Việt</label>
+            <input id="aw-hanviet" type="text" placeholder="e.g. MINH TINH"
+                   class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500/60 transition" />
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">English *</label>
+            <input id="aw-english" type="text" placeholder="e.g. Star, Celebrity"
+                   class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500/60 transition" />
+          </div>
+        </div>
+
+        <!-- Radical auto-detect banner -->
+        <div id="aw-radical-hint" class="hidden px-3 py-2 bg-slate-900/80 border border-slate-700/60 rounded-xl text-[11px] text-slate-400 flex items-center space-x-2">
+          <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span id="aw-radical-hint-text"></span>
+        </div>
+
+        <p id="aw-error" class="hidden text-[11px] text-red-400 font-semibold px-1"></p>
+      </div>
+
+      <button onclick="submitAddWord()"
+              class="w-full py-3 bg-violet-500 hover:bg-violet-400 active:bg-violet-600 text-white font-black text-sm rounded-xl transition">
+        Add to My Graph
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       BOTTOM NAV BAR
+  ══════════════════════════════════════ -->
+  <nav class="absolute bottom-0 inset-x-0 bg-slate-900/96 backdrop-blur-xl border-t border-slate-800/80 px-2 pt-2 pb-4 flex justify-around items-center z-20 shrink-0">
+    <button onclick="switchTab('card')" id="nav-card" data-tab="card"
+            class="nav-btn flex flex-col items-center px-4 py-1.5 rounded-2xl transition text-amber-400">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+      <span class="text-[10px] font-bold mt-0.5">Dict</span>
+    </button>
+    <button onclick="switchTab('graph')" id="nav-graph" data-tab="graph"
+            class="nav-btn flex flex-col items-center px-4 py-1.5 rounded-2xl transition text-slate-500">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" stroke-width="2"/><circle cx="19" cy="5" r="2" stroke-width="2"/><circle cx="19" cy="19" r="2" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M7 11l10-5M7 13l10 5"/></svg>
+      <span class="text-[10px] font-bold mt-0.5">Graph</span>
+    </button>
+    <button onclick="switchTab('reader')" id="nav-reader" data-tab="reader"
+            class="nav-btn flex flex-col items-center px-4 py-1.5 rounded-2xl transition text-slate-500">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <span class="text-[10px] font-bold mt-0.5">Reader</span>
+    </button>
+    <button onclick="switchTab('decks')" id="nav-decks" data-tab="decks"
+            class="nav-btn flex flex-col items-center px-4 py-1.5 rounded-2xl transition text-slate-500">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+      <span class="text-[10px] font-bold mt-0.5">Decks</span>
+    </button>
+  </nav>
+
+  <!-- ══════════════════════════════════════
+       WORD BOTTOM SHEET
+  ══════════════════════════════════════ -->
+  <!-- Backdrop -->
+  <div id="word-sheet-backdrop" class="absolute inset-0 bg-black/50 z-40 hidden" onclick="closeWordSheet()"></div>
+  <!-- Sheet -->
+  <div id="word-sheet" class="absolute bottom-0 inset-x-0 z-50 translate-y-full transition-transform duration-300 ease-out">
+    <div class="bg-slate-900 rounded-t-3xl border-t border-slate-700/60 shadow-2xl max-h-[75vh] overflow-y-auto">
+      <!-- Handle -->
+      <div class="flex justify-center pt-3 pb-1">
+        <div class="w-10 h-1 bg-slate-700 rounded-full"></div>
+      </div>
+      <div class="px-5 pb-8 pt-2">
+        <!-- Word header: tappable characters -->
+        <div class="flex items-start justify-between mb-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline flex-wrap gap-1 mb-1" id="ws-chars-row">
+              <!-- filled by JS: each char is a tappable button -->
+            </div>
+            <div class="text-xs text-slate-500 mt-1" id="ws-pinyin"></div>
+          </div>
+          <div class="text-right shrink-0 ml-3">
+            <div class="text-lg font-black text-amber-400 tracking-wide leading-tight" id="ws-hanviet"></div>
+            <div id="ws-hsk" class="text-[10px] bg-amber-500/20 text-amber-400 font-bold px-2 py-0.5 rounded-lg mt-1 inline-block hidden"></div>
+          </div>
+        </div>
+        <!-- Definition -->
+        <p class="text-sm text-slate-200 leading-relaxed mb-4" id="ws-def"></p>
+        <!-- Tap hint -->
+        <div class="flex items-center space-x-1.5 bg-slate-800/60 border border-slate-700/40 rounded-2xl px-3 py-2.5">
+          <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
+          <span class="text-[11px] text-slate-400">Tap any character above to open its full dictionary card</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end app-shell -->
+
+<!-- ══════════════════════════════════════════════════════════
+     DATA LAYER & APP LOGIC
+══════════════════════════════════════════════════════════ -->
+<script>
+// ─── DATA ──────────────────────────────────────────────────────────────────
+const CHARACTERS = {
+  '晨': {
+    symbol: '晨', pinyin: 'chén', hanviet: 'THẦN', english: 'Morning, Dawn, Early daybreak',
+    hsk: 4, strokes: 11, jp: 'しん (shin)', kr: '신 (sin)',
+    etymology: 'Mặt trời (<b>日</b> - Nhật) mọc nhô lên trên mốc thời gian cố định (<b>辰</b> - Thần) báo hiệu thời khắc bình minh vừa hé rạng.',
+    components: [
+      { symbol: '日', pinyin: 'rì', hanviet: 'NHẬT', def: 'Sun / Day', type: 'semantic' },
+      { symbol: '辰', pinyin: 'chén', hanviet: 'THẦN', def: 'Time / Heavenly Body', type: 'phonetic' },
+    ],
+    compounds: [
+      { word: '清晨', pinyin: 'qīng chén', hanviet: 'THANH THẦN', def: 'Early morning' },
+      { word: '晨昏', pinyin: 'chén hūn', hanviet: 'THẦN HÔN', def: 'Morning and evening' },
+      { word: '晨光', pinyin: 'chén guāng', hanviet: 'THẦN QUANG', def: 'Morning light' },
+      { word: '早晨', pinyin: 'zǎo chén', hanviet: 'TẢO THẦN', def: 'Early morning, daybreak' },
+    ]
+  },
+  '城': {
+    symbol: '城', pinyin: 'chéng', hanviet: 'THÀNH', english: 'City, Walled city, Fortress',
+    hsk: 3, strokes: 9, jp: 'じょう (jō)', kr: '성 (seong)',
+    etymology: 'Tường đất (<b>土</b> - Thổ) được dựng lên để bảo vệ (<b>成</b> - Thành) cộng đồng — hình thành nên thành lũy kiên cố.',
+    components: [
+      { symbol: '土', pinyin: 'tǔ', hanviet: 'THỔ', def: 'Earth / Soil (Semantic)', type: 'semantic' },
+      { symbol: '成', pinyin: 'chéng', hanviet: 'THÀNH', def: 'Complete / Accomplish (Phonetic)', type: 'phonetic' },
+    ],
+    compounds: [
+      { word: '城市', pinyin: 'chéng shì', hanviet: 'THÀNH THỊ', def: 'City, Metropolis' },
+      { word: '城堡', pinyin: 'chéng bǎo', hanviet: 'THÀNH BẢO', def: 'Castle, Fortress' },
+      { word: '古城', pinyin: 'gǔ chéng', hanviet: 'CỔ THÀNH', def: 'Ancient city' },
+      { word: '城墙', pinyin: 'chéng qiáng', hanviet: 'THÀNH TƯỜNG', def: 'City wall' },
+    ]
+  },
+  '地': {
+    symbol: '地', pinyin: 'dì / de', hanviet: 'ĐỊA', english: 'Ground, Earth, Place, Adverbial particle',
+    hsk: 2, strokes: 6, jp: 'ち/じ (chi/ji)', kr: '지 (ji)',
+    etymology: 'Đất (<b>土</b> - Thổ) và con rắn (<b>也</b> - Dã) bò sát mặt đất — hình ảnh phẳng dưới chân ta.',
+    components: [
+      { symbol: '土', pinyin: 'tǔ', hanviet: 'THỔ', def: 'Earth / Soil (Semantic)', type: 'semantic' },
+      { symbol: '也', pinyin: 'yě', hanviet: 'DÃ', def: 'Also / Snake (Phonetic)', type: 'phonetic' },
+    ],
+    compounds: [
+      { word: '地下铁', pinyin: 'dì xià tiě', hanviet: 'ĐỊA HẠ THIẾT', def: 'Subway, Metro' },
+      { word: '地方', pinyin: 'dì fāng', hanviet: 'ĐỊA PHƯƠNG', def: 'Place, Local area' },
+      { word: '土地', pinyin: 'tǔ dì', hanviet: 'THỔ ĐỊA', def: 'Land, Territory' },
+      { word: '地图', pinyin: 'dì tú', hanviet: 'ĐỊA ĐỒ', def: 'Map' },
+    ]
+  },
+  '明': {
+    symbol: '明', pinyin: 'míng', hanviet: 'MINH', english: 'Bright, Clear, Understand, Next (day)',
+    hsk: 2, strokes: 8, jp: 'めい/みょう (mei/myō)', kr: '명 (myeong)',
+    etymology: 'Mặt trời (<b>日</b> - Nhật) và mặt trăng (<b>月</b> - Nguyệt) cùng chiếu sáng — sự sáng rõ tuyệt đỉnh.',
+    components: [
+      { symbol: '日', pinyin: 'rì', hanviet: 'NHẬT', def: 'Sun / Day', type: 'semantic' },
+      { symbol: '月', pinyin: 'yuè', hanviet: 'NGUYỆT', def: 'Moon / Month', type: 'semantic' },
+    ],
+    compounds: [
+      { word: '明天', pinyin: 'míng tiān', hanviet: 'MINH THIÊN', def: 'Tomorrow' },
+      { word: '明亮', pinyin: 'míng liàng', hanviet: 'MINH LƯỢNG', def: 'Bright, Luminous' },
+      { word: '聪明', pinyin: 'cōng míng', hanviet: 'THÔNG MINH', def: 'Clever, Intelligent' },
+      { word: '说明', pinyin: 'shuō míng', hanviet: 'THUYẾT MINH', def: 'Explain, Explanation' },
+    ]
+  },
+  '学': {
+    symbol: '学', pinyin: 'xué', hanviet: 'HỌC', english: 'Study, Learn, Subject, School',
+    hsk: 1, strokes: 8, jp: 'がく (gaku)', kr: '학 (hak)',
+    etymology: 'Hai bàn tay (<b>爻</b>) truyền đạt kiến thức xuống cho đứa trẻ (<b>子</b> - Tử) trong mái nhà (<b>冖</b>) — hành động học hỏi, lĩnh hội.',
+    components: [
+      { symbol: '爻', pinyin: 'yáo', hanviet: 'HÀO', def: 'Lines / Teaching pattern', type: 'iconic' },
+      { symbol: '子', pinyin: 'zǐ', hanviet: 'TỬ', def: 'Child (Semantic)', type: 'semantic' },
+    ],
+    compounds: [
+      { word: '学校', pinyin: 'xué xiào', hanviet: 'HỌC HIỆU', def: 'School' },
+      { word: '学生', pinyin: 'xué shēng', hanviet: 'HỌC SINH', def: 'Student' },
+      { word: '大学', pinyin: 'dà xué', hanviet: 'ĐẠI HỌC', def: 'University' },
+      { word: '科学', pinyin: 'kē xué', hanviet: 'KHOA HỌC', def: 'Science' },
+    ]
+  },
+  '心': {
+    symbol: '心', pinyin: 'xīn', hanviet: 'TÂM', english: 'Heart, Mind, Feelings',
+    hsk: 3, strokes: 4, jp: 'しん (shin)', kr: '심 (sim)',
+    etymology: 'Hình ảnh trái tim (<b>心</b>) — cơ quan cảm xúc và tư duy trong triết học Đông Á cổ đại.',
+    components: [
+      { symbol: '心', pinyin: 'xīn', hanviet: 'TÂM', def: 'Heart shape (Pictographic)', type: 'iconic' },
+    ],
+    compounds: [
+      { word: '心情', pinyin: 'xīn qíng', hanviet: 'TÂM TÌNH', def: 'Mood, Feeling' },
+      { word: '中心', pinyin: 'zhōng xīn', hanviet: 'TRUNG TÂM', def: 'Center, Core' },
+      { word: '开心', pinyin: 'kāi xīn', hanviet: 'KHAI TÂM', def: 'Happy, Cheerful' },
+      { word: '耐心', pinyin: 'nài xīn', hanviet: 'NẠI TÂM', def: 'Patient, Patience' },
+    ]
+  }
+};
+
+const SEARCH_DATA = Object.values(CHARACTERS);
+
+// Compound words for search — each entry is a word with its constituent characters
+const COMPOUNDS = [
+  // 晨 compounds
+  { word: '清晨', pinyin: 'qīng chén', hanviet: 'THANH THẦN', def: 'Early morning', hsk: null, chars: ['清','晨'] },
+  { word: '早晨', pinyin: 'zǎo chén', hanviet: 'TẢO THẦN', def: 'Early morning; daybreak', hsk: 3, chars: ['早','晨'] },
+  { word: '晨光', pinyin: 'chén guāng', hanviet: 'THẦN QUANG', def: 'Morning light', hsk: null, chars: ['晨','光'] },
+  { word: '晨练', pinyin: 'chén liàn', hanviet: 'THẦN LUYỆN', def: 'Morning exercise', hsk: null, chars: ['晨','练'] },
+  { word: '凌晨', pinyin: 'líng chén', hanviet: 'LĂNG THẦN', def: 'Very early morning; just after midnight', hsk: 5, chars: ['凌','晨'] },
+  { word: '一日之计在于晨', pinyin: 'yī rì zhī jì zài yú chén', hanviet: 'NHẤT NHẬT CHI KẾ TẠI VU THẦN', def: 'Make your day\'s plan early in the morning (idiom)', hsk: null, chars: ['一','日','之','计','在','于','晨'] },
+  // 明 compounds
+  { word: '明天', pinyin: 'míng tiān', hanviet: 'MINH THIÊN', def: 'Tomorrow', hsk: 1, chars: ['明','天'] },
+  { word: '明亮', pinyin: 'míng liàng', hanviet: 'MINH LƯỢNG', def: 'Bright, Luminous', hsk: 3, chars: ['明','亮'] },
+  { word: '聪明', pinyin: 'cōng míng', hanviet: 'THÔNG MINH', def: 'Clever, Intelligent', hsk: 3, chars: ['聪','明'] },
+  { word: '说明', pinyin: 'shuō míng', hanviet: 'THUYẾT MINH', def: 'Explain, Explanation', hsk: 4, chars: ['说','明'] },
+  { word: '文明', pinyin: 'wén míng', hanviet: 'VĂN MINH', def: 'Civilisation; civilised', hsk: 4, chars: ['文','明'] },
+  { word: '明显', pinyin: 'míng xiǎn', hanviet: 'MINH HIỂN', def: 'Obvious, Clear', hsk: 4, chars: ['明','显'] },
+  // 学 compounds
+  { word: '学校', pinyin: 'xué xiào', hanviet: 'HỌC HIỆU', def: 'School', hsk: 1, chars: ['学','校'] },
+  { word: '学生', pinyin: 'xué shēng', hanviet: 'HỌC SINH', def: 'Student', hsk: 1, chars: ['学','生'] },
+  { word: '大学', pinyin: 'dà xué', hanviet: 'ĐẠI HỌC', def: 'University', hsk: 2, chars: ['大','学'] },
+  { word: '科学', pinyin: 'kē xué', hanviet: 'KHOA HỌC', def: 'Science', hsk: 3, chars: ['科','学'] },
+  { word: '数学', pinyin: 'shù xué', hanviet: 'SỐ HỌC', def: 'Mathematics', hsk: 3, chars: ['数','学'] },
+  // 心 compounds
+  { word: '心情', pinyin: 'xīn qíng', hanviet: 'TÂM TÌNH', def: 'Mood, Feeling', hsk: 3, chars: ['心','情'] },
+  { word: '中心', pinyin: 'zhōng xīn', hanviet: 'TRUNG TÂM', def: 'Center, Core', hsk: 3, chars: ['中','心'] },
+  { word: '开心', pinyin: 'kāi xīn', hanviet: 'KHAI TÂM', def: 'Happy, Cheerful', hsk: 3, chars: ['开','心'] },
+  { word: '耐心', pinyin: 'nài xīn', hanviet: 'NẠI TÂM', def: 'Patient, Patience', hsk: 4, chars: ['耐','心'] },
+  { word: '小心', pinyin: 'xiǎo xīn', hanviet: 'TIỂU TÂM', def: 'Be careful', hsk: 2, chars: ['小','心'] },
+  // 城 compounds
+  { word: '城市', pinyin: 'chéng shì', hanviet: 'THÀNH THỊ', def: 'City, Metropolis', hsk: 3, chars: ['城','市'] },
+  { word: '城堡', pinyin: 'chéng bǎo', hanviet: 'THÀNH BẢO', def: 'Castle, Fortress', hsk: null, chars: ['城','堡'] },
+  { word: '长城', pinyin: 'cháng chéng', hanviet: 'TRƯỜNG THÀNH', def: 'Great Wall', hsk: 4, chars: ['长','城'] },
+  // 地 compounds
+  { word: '地方', pinyin: 'dì fāng', hanviet: 'ĐỊA PHƯƠNG', def: 'Place, Local area', hsk: 3, chars: ['地','方'] },
+  { word: '地图', pinyin: 'dì tú', hanviet: 'ĐỊA ĐỒ', def: 'Map', hsk: 3, chars: ['地','图'] },
+  { word: '地铁', pinyin: 'dì tiě', hanviet: 'ĐỊA THIẾT', def: 'Subway, Metro', hsk: 3, chars: ['地','铁'] },
+  { word: '土地', pinyin: 'tǔ dì', hanviet: 'THỔ ĐỊA', def: 'Land, Territory', hsk: null, chars: ['土','地'] },
+];
+
+// Graph radical datasets
+const GRAPH_DATA = {
+  '土': {
+    label: '土 · Thổ', pinyin: 'tǔ', hanviet: 'THỔ', def: 'Earth, soil',
+    chars: [
+      { symbol: '城', pinyin: 'chéng', hanviet: 'THÀNH', def: 'City / Wall' },
+      { symbol: '地', pinyin: 'dì', hanviet: 'ĐỊA', def: 'Ground / Earth' },
+      { symbol: '场', pinyin: 'chǎng', hanviet: 'TRƯỜNG', def: 'Field / Open area' },
+    ],
+    compounds: {
+      '城': [
+        { word: '城市', hanviet: 'THÀNH THỊ', def: 'City', hsk: 3, resonance: 'medium' },
+        { word: '城堡', hanviet: 'THÀNH BẢO', def: 'Castle', hsk: null, resonance: 'high' },
+        { word: '古城', hanviet: 'CỔ THÀNH', def: 'Ancient city', hsk: null, resonance: 'high' },
+        { word: '城墙', hanviet: 'THÀNH TƯỜNG', def: 'City wall', hsk: null, resonance: 'medium' },
+      ],
+      '地': [
+        { word: '地下铁', hanviet: 'ĐỊA HẠ THIẾT', def: 'Subway', hsk: 4, resonance: 'high' },
+        { word: '地图', hanviet: 'ĐỊA ĐỒ', def: 'Map', hsk: 3, resonance: 'high' },
+        { word: '地方', hanviet: 'ĐỊA PHƯƠNG', def: 'Place, Local area', hsk: 3, resonance: 'high' },
+        { word: '土地', hanviet: 'THỔ ĐỊA', def: 'Land, Territory', hsk: null, resonance: 'high' },
+      ],
+      '场': [
+        { word: '机场', hanviet: 'CƠ TRƯỜNG', def: 'Airport', hsk: 3, resonance: 'high' },
+        { word: '广场', hanviet: 'QUẢNG TRƯỜNG', def: 'Plaza', hsk: 4, resonance: 'high' },
+        { word: '市场', hanviet: 'THỊ TRƯỜNG', def: 'Market', hsk: 3, resonance: 'high' },
+        { word: '操场', hanviet: 'THAO TRƯỜNG', def: 'Sports field', hsk: null, resonance: 'medium' },
+      ],
+    }
+  },
+  '日': {
+    label: '日 · Nhật', pinyin: 'rì', hanviet: 'NHẬT', def: 'Sun, day',
+    chars: [
+      { symbol: '晨', pinyin: 'chén', hanviet: 'THẦN', def: 'Morning' },
+      { symbol: '明', pinyin: 'míng', hanviet: 'MINH', def: 'Bright' },
+      { symbol: '时', pinyin: 'shí', hanviet: 'THỜI', def: 'Time' },
+    ],
+    compounds: {
+      '晨': [
+        { word: '清晨', hanviet: 'THANH THẦN', def: 'Early morning', hsk: null, resonance: 'high' },
+        { word: '晨光', hanviet: 'THẦN QUANG', def: 'Morning light', hsk: null, resonance: 'high' },
+        { word: '早晨', hanviet: 'TẢO THẦN', def: 'Daybreak', hsk: 3, resonance: 'medium' },
+        { word: '晨练', hanviet: 'THẦN LUYỆN', def: 'Morning exercise', hsk: null, resonance: 'low' },
+      ],
+      '明': [
+        { word: '明天', hanviet: 'MINH THIÊN', def: 'Tomorrow', hsk: 1, resonance: 'medium' },
+        { word: '聪明', hanviet: 'THÔNG MINH', def: 'Intelligent', hsk: 3, resonance: 'high' },
+        { word: '说明', hanviet: 'THUYẾT MINH', def: 'Explain', hsk: 4, resonance: 'high' },
+        { word: '明亮', hanviet: 'MINH LƯỢNG', def: 'Bright, Luminous', hsk: null, resonance: 'high' },
+      ],
+      '时': [
+        { word: '时间', hanviet: 'THỜI GIAN', def: 'Time', hsk: 2, resonance: 'high' },
+        { word: '有时', hanviet: 'HỮU THỜI', def: 'Sometimes', hsk: 3, resonance: 'high' },
+        { word: '时代', hanviet: 'THỜI ĐẠI', def: 'Era, Age', hsk: 4, resonance: 'high' },
+        { word: '及时', hanviet: 'CẬP THỜI', def: 'In time, Timely', hsk: null, resonance: 'medium' },
+      ],
+    }
+  },
+  '心': {
+    label: '心 · Tâm', pinyin: 'xīn', hanviet: 'TÂM', def: 'Heart, mind',
+    chars: [
+      { symbol: '想', pinyin: 'xiǎng', hanviet: 'TƯỞNG', def: 'Think / Miss' },
+      { symbol: '忘', pinyin: 'wàng', hanviet: 'VONG', def: 'Forget' },
+      { symbol: '情', pinyin: 'qíng', hanviet: 'TÌNH', def: 'Emotion' },
+    ],
+    compounds: {
+      '想': [
+        { word: '想念', hanviet: 'TƯỞNG NIỆM', def: 'Miss / Long for', hsk: null, resonance: 'high' },
+        { word: '思想', hanviet: 'TƯ TƯỞNG', def: 'Thought / Ideology', hsk: 5, resonance: 'high' },
+        { word: '理想', hanviet: 'LÝ TƯỞNG', def: 'Ideal, Dream', hsk: 4, resonance: 'high' },
+        { word: '幻想', hanviet: 'HUYỄN TƯỞNG', def: 'Fantasy, Illusion', hsk: null, resonance: 'high' },
+      ],
+      '忘': [
+        { word: '忘记', hanviet: 'VONG KÝ', def: 'Forget', hsk: 3, resonance: 'medium' },
+        { word: '难忘', hanviet: 'NAN VONG', def: 'Unforgettable', hsk: null, resonance: 'high' },
+        { word: '遗忘', hanviet: 'DI VONG', def: 'To forget (formal)', hsk: null, resonance: 'high' },
+        { word: '忘恩', hanviet: 'VONG ÂN', def: 'Ungrateful', hsk: null, resonance: 'low' },
+      ],
+      '情': [
+        { word: '心情', hanviet: 'TÂM TÌNH', def: 'Mood', hsk: 3, resonance: 'high' },
+        { word: '感情', hanviet: 'CẢM TÌNH', def: 'Feelings / Affection', hsk: 4, resonance: 'high' },
+        { word: '情况', hanviet: 'TÌNH HUỐNG', def: 'Situation', hsk: 4, resonance: 'high' },
+        { word: '爱情', hanviet: 'ÁI TÌNH', def: 'Romantic love', hsk: 4, resonance: 'high' },
+      ],
+    }
+  },
+  '水': {
+    label: '水 · Thủy', pinyin: 'shuǐ', hanviet: 'THỦY', def: 'Water',
+    chars: [
+      { symbol: '海', pinyin: 'hǎi', hanviet: 'HẢI', def: 'Sea / Ocean' },
+      { symbol: '河', pinyin: 'hé', hanviet: 'HÀ', def: 'River' },
+      { symbol: '泳', pinyin: 'yǒng', hanviet: 'VỊNH', def: 'Swim' },
+    ],
+    compounds: {
+      '海': [
+        { word: '海洋', hanviet: 'HẢI DƯƠNG', def: 'Ocean', hsk: 4, resonance: 'high' },
+        { word: '上海', hanviet: 'THƯỢNG HẢI', def: 'Shanghai', hsk: null, resonance: 'high' },
+        { word: '海外', hanviet: 'HẢI NGOẠI', def: 'Overseas', hsk: null, resonance: 'high' },
+        { word: '海关', hanviet: 'HẢI QUAN', def: 'Customs (border)', hsk: null, resonance: 'high' },
+      ],
+      '河': [
+        { word: '河流', hanviet: 'HÀ LƯU', def: 'River / Stream', hsk: null, resonance: 'high' },
+        { word: '黄河', hanviet: 'HOÀNG HÀ', def: 'Yellow River', hsk: null, resonance: 'high' },
+        { word: '运河', hanviet: 'VẬN HÀ', def: 'Canal', hsk: null, resonance: 'medium' },
+        { word: '河边', hanviet: 'HÀ BIÊN', def: 'Riverside', hsk: null, resonance: 'medium' },
+      ],
+      '泳': [
+        { word: '游泳', hanviet: 'DU VỊNH', def: 'Swimming', hsk: 3, resonance: 'high' },
+        { word: '泳池', hanviet: 'VỊNH TRÌ', def: 'Swimming pool', hsk: null, resonance: 'medium' },
+        { word: '蝶泳', hanviet: 'ĐIỆP VỊNH', def: 'Butterfly stroke', hsk: null, resonance: 'low' },
+        { word: '仰泳', hanviet: 'NGƯỠNG VỊNH', def: 'Backstroke', hsk: null, resonance: 'low' },
+      ],
+    }
+  },
+  '人': {
+    label: '人 · Nhân', pinyin: 'rén', hanviet: 'NHÂN', def: 'Person, human',
+    chars: [
+      { symbol: '从', pinyin: 'cóng', hanviet: 'TÙNG', def: 'Follow / From' },
+      { symbol: '以', pinyin: 'yǐ', hanviet: 'DĨ', def: 'Use / With' },
+      { symbol: '仁', pinyin: 'rén', hanviet: 'NHÂN', def: 'Benevolence' },
+    ],
+    compounds: {
+      '从': [
+        { word: '从来', hanviet: 'TÙNG LAI', def: 'Always / Never (neg.)', hsk: 3, resonance: 'medium' },
+        { word: '服从', hanviet: 'PHỤC TÙNG', def: 'Obey, Submit', hsk: null, resonance: 'high' },
+        { word: '跟从', hanviet: 'CẢNH TÙNG', def: 'Follow', hsk: null, resonance: 'medium' },
+        { word: '从事', hanviet: 'TÙNG SỰ', def: 'Engage in (work)', hsk: null, resonance: 'high' },
+      ],
+      '以': [
+        { word: '可以', hanviet: 'KHẢ DĨ', def: 'Can / May', hsk: 1, resonance: 'high' },
+        { word: '以为', hanviet: 'DĨ VI', def: 'Think / Assume', hsk: 3, resonance: 'high' },
+        { word: '所以', hanviet: 'SỞ DĨ', def: 'Therefore', hsk: 2, resonance: 'high' },
+        { word: '以往', hanviet: 'DĨ VÃNG', def: 'In the past', hsk: null, resonance: 'high' },
+      ],
+      '仁': [
+        { word: '仁慈', hanviet: 'NHÂN TỪ', def: 'Merciful / Kind', hsk: null, resonance: 'high' },
+        { word: '仁义', hanviet: 'NHÂN NGHĨA', def: 'Benevolence & Righteousness', hsk: null, resonance: 'high' },
+        { word: '人仁', hanviet: 'NHÂN NHÂN', def: 'Humane person', hsk: null, resonance: 'low' },
+        { word: '仁心', hanviet: 'NHÂN TÂM', def: 'Compassionate heart', hsk: null, resonance: 'high' },
+      ],
+    }
+  },
+  '木': {
+    label: '木 · Mộc', pinyin: 'mù', hanviet: 'MỘC', def: 'Tree, wood',
+    chars: [
+      { symbol: '树', pinyin: 'shù', hanviet: 'THỤ', def: 'Tree' },
+      { symbol: '桌', pinyin: 'zhuō', hanviet: 'TRÁC', def: 'Table / Desk' },
+      { symbol: '林', pinyin: 'lín', hanviet: 'LÂM', def: 'Forest / Grove' },
+    ],
+    compounds: {
+      '树': [
+        { word: '树木', hanviet: 'THỤ MỘC', def: 'Trees (collective)', hsk: null, resonance: 'high' },
+        { word: '树立', hanviet: 'THỤ LẬP', def: 'Establish / Set up', hsk: 5, resonance: 'high' },
+        { word: '果树', hanviet: 'QUẢ THỤ', def: 'Fruit tree', hsk: null, resonance: 'medium' },
+        { word: '植树', hanviet: 'THỰC THỤ', def: 'Tree planting', hsk: null, resonance: 'medium' },
+      ],
+      '桌': [
+        { word: '桌子', hanviet: 'TRÁC TỬ', def: 'Table', hsk: 1, resonance: 'low' },
+        { word: '书桌', hanviet: 'THƯ TRÁC', def: 'Desk', hsk: null, resonance: 'high' },
+        { word: '餐桌', hanviet: 'XAN TRÁC', def: 'Dining table', hsk: null, resonance: 'medium' },
+        { word: '桌面', hanviet: 'TRÁC DIỆN', def: 'Desktop / Tabletop', hsk: null, resonance: 'medium' },
+      ],
+      '林': [
+        { word: '森林', hanviet: 'SÂM LÂM', def: 'Forest', hsk: 4, resonance: 'high' },
+        { word: '林业', hanviet: 'LÂM NGHIỆP', def: 'Forestry industry', hsk: null, resonance: 'high' },
+        { word: '竹林', hanviet: 'TRÚC LÂM', def: 'Bamboo grove', hsk: null, resonance: 'high' },
+        { word: '树林', hanviet: 'THỤ LÂM', def: 'Woodland, Copse', hsk: null, resonance: 'high' },
+      ],
+    }
+  }
+};
+
+const RADICALS = [
+  { sym: '土', hv: 'THỔ' }, { sym: '日', hv: 'NHẬT' }, { sym: '心', hv: 'TÂM' },
+  { sym: '水', hv: 'THỦY' }, { sym: '人', hv: 'NHÂN' }, { sym: '木', hv: 'MỘC' },
+  { sym: '火', hv: 'HỎA' }, { sym: '金', hv: 'KIM' }, { sym: '月', hv: 'NGUYỆT' },
+  { sym: '山', hv: 'SƠN' }, { sym: '口', hv: 'KHẨU' }, { sym: '手', hv: 'THỦ' },
+];
+
+const SNIPPETS = [
+  {
+    title: '《这世界那么多人》· Snippet',
+    words: [
+      { text: '这座', hanviet: 'TẬP ĐỌA', pinyin: 'zhè zuò', def: 'This (place word)' },
+      { text: '城市', hanviet: 'THÀNH THỊ', pinyin: 'chéng shì', def: 'City, Metropolis' },
+      { text: '的', hanviet: 'ĐÍCH', pinyin: 'de', def: 'Possessive particle' },
+      { text: '夜景', hanviet: 'DẠ CẢNH', pinyin: 'yè jǐng', def: 'Night view, Nightscape' },
+      { text: '非常', hanviet: 'PHI THƯỜNG', pinyin: 'fēi cháng', def: 'Very, Extremely' },
+      { text: '美', hanviet: 'MỸ', pinyin: 'měi', def: 'Beautiful' },
+      { text: '。', hanviet: '', pinyin: '', def: '' },
+    ]
+  },
+  {
+    title: '《夜曲》· Jay Chou',
+    words: [
+      { text: '夜曲', hanviet: 'DẠ KHÚC', pinyin: 'yè qǔ', def: 'Nocturne / Night song' },
+      { text: '为你', hanviet: 'VI NHĨ', pinyin: 'wèi nǐ', def: 'For you' },
+      { text: '弹', hanviet: 'ĐÀN', pinyin: 'tán', def: 'Play (instrument)' },
+      { text: '一首', hanviet: 'NHẤT THỦ', pinyin: 'yī shǒu', def: 'One piece (of music)' },
+      { text: '肖邦', hanviet: 'TIÊU BANG', pinyin: 'Xiāo Bāng', def: 'Chopin (proper noun)' },
+      { text: '。', hanviet: '', pinyin: '', def: '' },
+    ]
+  }
+];
+
+// ── Seeded HSK collections ──────────────────────────────────────────────────
+const HSK_DECKS = [
+  { level: 1, count: 150,  color: '#10b981', bg: 'bg-emerald-500/15', border: 'border-emerald-500/25', text: 'text-emerald-400', desc: 'Core basics' },
+  { level: 2, count: 150,  color: '#3b82f6', bg: 'bg-blue-500/15',    border: 'border-blue-500/25',    text: 'text-blue-400',    desc: 'Everyday use' },
+  { level: 3, count: 300,  color: '#8b5cf6', bg: 'bg-violet-500/15',  border: 'border-violet-500/25',  text: 'text-violet-400',  desc: 'Conversational' },
+  { level: 4, count: 600,  color: '#f59e0b', bg: 'bg-amber-500/15',   border: 'border-amber-500/25',   text: 'text-amber-400',   desc: 'Upper intermediate' },
+  { level: 5, count: 1300, color: '#ef4444', bg: 'bg-red-500/15',     border: 'border-red-500/25',     text: 'text-red-400',     desc: 'Advanced' },
+  { level: 6, count: 2500, color: '#ec4899', bg: 'bg-pink-500/15',    border: 'border-pink-500/25',    text: 'text-pink-400',    desc: 'Mastery' },
+  { level: 7, count: 3000, color: '#06b6d4', bg: 'bg-cyan-500/15',    border: 'border-cyan-500/25',    text: 'text-cyan-400',    desc: 'Professional' },
+  { level: 8, count: 1500, color: '#84cc16', bg: 'bg-lime-500/15',    border: 'border-lime-500/25',    text: 'text-lime-400',    desc: 'Academic' },
+  { level: 9, count: 1500, color: '#f97316', bg: 'bg-orange-500/15',  border: 'border-orange-500/25',  text: 'text-orange-400',  desc: 'Near-native' },
+];
+
+// ── Seeded topic collections ────────────────────────────────────────────────
+const TOPIC_DECKS = [
+  { id: 'nature',    name: 'Nature & Cosmos',      icon: '🌿', count: 186, resonance: 'high',   color: 'emerald', desc: '日·月·山·水·木·火 radicals' },
+  { id: 'body',      name: 'Body & Mind',           icon: '🫀', count: 142, resonance: 'high',   color: 'red',     desc: '心·目·口·手·耳 radicals' },
+  { id: 'city',      name: 'City & Places',         icon: '🏙️', count: 210, resonance: 'high',   color: 'sky',     desc: '土·門·城·市 radicals' },
+  { id: 'emotion',   name: 'Emotions & Character',  icon: '💭', count: 167, resonance: 'high',   color: 'violet',  desc: '心·情·愛·德 clusters' },
+  { id: 'time',      name: 'Time & History',        icon: '⏳', count: 134, resonance: 'high',   color: 'amber',   desc: '日·時·代·史 radicals' },
+  { id: 'family',    name: 'Family & Society',      icon: '👨‍👩‍👧', count: 98,  resonance: 'high',   color: 'rose',    desc: '人·子·女·父 radicals' },
+  { id: 'learning',  name: 'Learning & Knowledge',  icon: '📚', count: 156, resonance: 'high',   color: 'indigo',  desc: '學·文·言·書 radicals' },
+  { id: 'travel',    name: 'Travel & Transport',    icon: '✈️', count: 120, resonance: 'medium', color: 'teal',    desc: '車·水·走·飛 radicals' },
+  { id: 'food',      name: 'Food & Drink',          icon: '🍜', count: 93,  resonance: 'medium', color: 'orange',  desc: '食·米·水·火 radicals' },
+  { id: 'business',  name: 'Business & Economy',    icon: '💼', count: 178, resonance: 'high',   color: 'slate',   desc: '金·貝·商·工 radicals' },
+  { id: 'hv_anchor', name: 'Strong HV Cognates',    icon: '🔤', count: 523, resonance: 'high',   color: 'amber',   desc: 'Curated anchor words', featured: true },
+  { id: 'songs',     name: 'Popular Song Vocab',    icon: '🎵', count: 87,  resonance: 'medium', color: 'pink',    desc: 'From 周杰倫·邓丽君·陈奕迅' },
+];
+
+// ── User-created decks (persisted) ──────────────────────────────────────────
+let userDecks = [];
+
+function loadUserDecks() {
+  try {
+    const raw = localStorage.getItem('sinosphere_user_decks');
+    if (raw) userDecks = JSON.parse(raw);
+  } catch(e) { userDecks = []; }
+}
+
+function saveUserDecks() {
+  localStorage.setItem('sinosphere_user_decks', JSON.stringify(userDecks));
+}
+
+const BOOKMARKS = ['晨', '城', '明', '学', '心', '地', '水', '人'];
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let currentChar = '晨';
+let activeGraph = '土';
+let activeGraphChar = null;
+let isBookmarked = false;
+let readerMode = 'hanviet';
+let currentSnippet = 0;
+let bookmarkSet = new Set(BOOKMARKS);
+let graphFilter = 'all'; // 'all' | 'high' | 'learned'
+
+// User-learned nodes persisted to localStorage.
+// Shape: { [radicalKey]: { chars: [{symbol,pinyin,hanviet,def,learned:true}], compounds: {[charSym]: [{word,hanviet,def,learned:true}]} } }
+let userGraphData = {};
+
+function loadUserGraph() {
+  try {
+    const raw = localStorage.getItem('sinosphere_user_graph');
+    if (raw) userGraphData = JSON.parse(raw);
+  } catch(e) { userGraphData = {}; }
+}
+
+function saveUserGraph() {
+  localStorage.setItem('sinosphere_user_graph', JSON.stringify(userGraphData));
+}
+
+// Merge seeded + user data for a radical key, applying active filter
+function getMergedGraph(radicalKey) {
+  const seed = GRAPH_DATA[radicalKey];
+  if (!seed) return null;
+  const user = userGraphData[radicalKey] || { chars: [], compounds: {} };
+
+  let mergedChars = [
+    ...seed.chars,
+    ...user.chars.filter(uc => !seed.chars.find(sc => sc.symbol === uc.symbol))
+  ];
+
+  const mergedCompounds = { ...seed.compounds };
+  Object.entries(user.compounds || {}).forEach(([sym, words]) => {
+    const existing = mergedCompounds[sym] || [];
+    const fresh = words.filter(uw => !existing.find(ew => ew.word === uw.word));
+    mergedCompounds[sym] = [...existing, ...fresh];
+  });
+
+  // Apply filter
+  if (graphFilter === 'high') {
+    // Keep Tier 2 chars that have at least one high-resonance compound; hide low/none compounds
+    const filteredCompounds = {};
+    mergedChars.forEach(ch => {
+      const all = mergedCompounds[ch.symbol] || [];
+      const kept = all.filter(c => c.resonance === 'high' && !c.learned);
+      filteredCompounds[ch.symbol] = kept;
+    });
+    // Drop Tier 2 nodes that have zero compounds after filtering
+    mergedChars = mergedChars.filter(ch =>
+      ch.learned ? false : (filteredCompounds[ch.symbol] || []).length > 0
+    );
+    return { ...seed, chars: mergedChars, compounds: filteredCompounds };
+  }
+
+  if (graphFilter === 'learned') {
+    // Show only user-added nodes
+    const learnedChars = mergedChars.filter(ch => ch.learned);
+    const learnedCompounds = {};
+    mergedChars.forEach(ch => {
+      const all = mergedCompounds[ch.symbol] || [];
+      learnedCompounds[ch.symbol] = all.filter(c => c.learned);
+    });
+    // If no learned nodes at all, return a special empty marker
+    if (learnedChars.length === 0 && Object.values(learnedCompounds).every(a => a.length === 0)) {
+      return { ...seed, chars: [], compounds: {}, _empty: true };
+    }
+    return { ...seed, chars: learnedChars, compounds: learnedCompounds };
+  }
+
+  return { ...seed, chars: mergedChars, compounds: mergedCompounds };
+}
+
+function setGraphFilter(filter) {
+  graphFilter = filter;
+  // Update button styles
+  ['all', 'high', 'learned'].forEach(f => {
+    const btn = document.getElementById(`filter-${f}`);
+    if (f === filter) {
+      btn.classList.add('bg-slate-700', 'text-slate-100');
+      btn.classList.remove('text-slate-400');
+    } else {
+      btn.classList.remove('bg-slate-700', 'text-slate-100');
+      btn.classList.add('text-slate-400');
+    }
+  });
+  activeGraphChar = null;
+  renderGraph(activeGraph);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadUserGraph();
+  loadUserDecks();
+  loadReadingHistory();
+  loadCharCard('晨');
+  renderRadicalGrid();
+  renderGraph('土');
+  loadSnippet(0);
+  renderDecks();
+  renderBookmarksGrid();
+});
+
+// ─── TAB SWITCHING ───────────────────────────────────────────────────────────
+function switchTab(tab) {
+  ['card', 'graph', 'reader', 'decks'].forEach(t => {
+    const v = document.getElementById(`view-${t}`);
+    const n = document.getElementById(`nav-${t}`);
+    v.classList.add('hidden');
+    v.classList.remove('flex');
+    n.classList.remove('text-amber-400');
+    n.classList.add('text-slate-500');
+  });
+  const view = document.getElementById(`view-${tab}`);
+  view.classList.remove('hidden');
+  if (tab === 'graph') view.classList.add('flex');
+  const nav = document.getElementById(`nav-${tab}`);
+  nav.classList.remove('text-slate-500');
+  nav.classList.add('text-amber-400');
+  closeReaderModal();
+  if (tab === 'graph') { setTimeout(() => renderGraph(activeGraph), 50); }
+}
+
+// ─── CHARACTER CARD ──────────────────────────────────────────────────────────
+// Map each character to its primary radical for graph navigation
+const CHAR_TO_RADICAL = {
+  '晨': '日', '明': '日', '时': '日',
+  '城': '土', '地': '土', '场': '土',
+  '想': '心', '忘': '心', '情': '心', '心': '心',
+  '海': '水', '河': '水', '泳': '水',
+  '从': '人', '以': '人', '仁': '人',
+  '树': '木', '桌': '木', '林': '木',
+  '学': '人',
+};
+
+function exploreCharGraph() {
+  const radical = CHAR_TO_RADICAL[currentChar];
+  if (radical && GRAPH_DATA[radical]) {
+    activeGraph = radical;
+    activeGraphChar = currentChar;
+    document.getElementById('active-radical-label').textContent = GRAPH_DATA[radical].label;
+    const g = GRAPH_DATA[radical];
+    updateInspector(currentChar, CHARACTERS[currentChar]?.pinyin || '', CHARACTERS[currentChar]?.hanviet || '', 'Character', CHARACTERS[currentChar]?.english || '');
+  }
+  switchTab('graph');
+}
+
+function loadCharCard(key) {
+  const c = CHARACTERS[key];
+  if (!c) return;
+  currentChar = key;
+  document.getElementById('card-symbol').textContent = c.symbol;
+  document.getElementById('card-pinyin').textContent = c.pinyin;
+  document.getElementById('card-hanviet').textContent = c.hanviet;
+  document.getElementById('card-english').textContent = c.english;
+  document.getElementById('card-hsk').textContent = `HSK ${c.hsk}`;
+  document.getElementById('card-jp').textContent = c.jp;
+  document.getElementById('card-kr').textContent = c.kr;
+  document.getElementById('card-strokes').textContent = c.strokes;
+  document.getElementById('card-etymology').innerHTML = c.etymology;
+  renderComponents(c.components);
+  renderCompounds(c.compounds);
+  document.getElementById('compound-count').textContent = `${c.compounds.length} words`;
+  // Update teaser button label to reflect this character's radical
+  const radical = CHAR_TO_RADICAL[key];
+  const teaserLabel = document.getElementById('graph-teaser-label');
+  if (teaserLabel) {
+    teaserLabel.textContent = radical && GRAPH_DATA[radical]
+      ? `${key} is derived from ${radical} (${GRAPH_DATA[radical].hanviet}) · explore its network`
+      : '3-tier radical network visualization';
+  }
+  const bookmarkBtn = document.getElementById('bookmark-btn');
+  if (bookmarkSet.has(key)) {
+    bookmarkBtn.classList.add('text-amber-400');
+  } else {
+    bookmarkBtn.classList.remove('text-amber-400');
+  }
+}
+
+function renderComponents(comps) {
+  const typeColors = {
+    semantic: { bg: 'bg-emerald-500/20', border: 'border-emerald-500/40', text: 'text-emerald-400', badge: 'Biểu ý', badgeBg: 'bg-emerald-500/10 text-emerald-400' },
+    phonetic: { bg: 'bg-blue-500/20', border: 'border-blue-500/40', text: 'text-blue-400', badge: 'Biểu âm', badgeBg: 'bg-blue-500/10 text-blue-400' },
+    iconic:   { bg: 'bg-purple-500/20', border: 'border-purple-500/40', text: 'text-purple-400', badge: 'Tượng hình', badgeBg: 'bg-purple-500/10 text-purple-400' },
+  };
+  const list = document.getElementById('components-list');
+  list.innerHTML = comps.map(comp => {
+    const s = typeColors[comp.type] || typeColors.semantic;
+    return `<div class="flex items-center justify-between p-2.5 bg-slate-900/70 rounded-2xl border border-slate-700/30 cursor-pointer hover:border-slate-600/50 transition" onclick="loadCharCard('${comp.symbol}'); switchTab('card')">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl ${s.bg} border ${s.border} flex items-center justify-center text-xl font-bold ${s.text} compact-char">${comp.symbol}</div>
+        <div>
+          <div class="text-sm font-bold text-slate-200">${comp.pinyin} <span class="text-xs text-amber-400 font-black ml-1">${comp.hanviet}</span></div>
+          <div class="text-xs text-slate-500">${comp.def}</div>
+        </div>
+      </div>
+      <span class="text-[9px] font-bold px-2 py-1 rounded-lg ${s.badgeBg}">${s.badge}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderCompounds(compounds) {
+  const list = document.getElementById('compounds-list');
+  list.innerHTML = compounds.map(c => `
+    <div class="py-2.5 flex justify-between items-center cursor-pointer hover:bg-slate-700/20 rounded-xl px-1 transition" onclick="openReaderModal('${c.word}', '${c.hanviet}', '${c.pinyin}', '${c.def}')">
+      <div class="flex items-center space-x-2.5">
+        <span class="text-lg font-bold text-slate-100 compact-char">${c.word}</span>
+        <span class="text-xs text-sky-400">${c.pinyin}</span>
+      </div>
+      <div class="text-right">
+        <div class="text-xs font-black text-amber-400">${c.hanviet}</div>
+        <div class="text-[11px] text-slate-500">${c.def}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── SEARCH ──────────────────────────────────────────────────────────────────
+function handleSearch(val) {
+  const clearBtn = document.getElementById('clear-btn');
+  clearBtn.classList.toggle('hidden', val.length === 0);
+  if (val.length === 0) { hideSearchResults(); return; }
+  const q = val.toLowerCase().trim();
+
+  // Search compounds first (most results), then fall back to single chars
+  const compoundResults = COMPOUNDS.filter(c =>
+    c.word.includes(val) ||
+    c.pinyin.toLowerCase().includes(q) ||
+    c.hanviet.toLowerCase().includes(q) ||
+    c.def.toLowerCase().includes(q)
+  );
+
+  // Also include single-character matches that aren't already represented
+  const charResults = SEARCH_DATA.filter(c =>
+    c.symbol.includes(val) ||
+    c.pinyin.toLowerCase().includes(q) ||
+    c.hanviet.toLowerCase().includes(q) ||
+    c.english.toLowerCase().includes(q)
+  ).map(c => ({
+    word: c.symbol, pinyin: c.pinyin, hanviet: c.hanviet,
+    def: c.english, hsk: c.hsk, chars: [c.symbol], _isSingleChar: true
+  })).filter(c => !compoundResults.find(r => r.word === c.word));
+
+  renderSearchResults([...compoundResults, ...charResults].slice(0, 20));
+}
+
+function renderSearchResults(results) {
+  const list = document.getElementById('search-list');
+  if (results.length === 0) {
+    list.innerHTML = '<div class="p-3 text-center text-xs text-slate-500">No results found</div>';
+  } else {
+    list.innerHTML = results.map((c, i) => `
+      <div class="search-result-item flex items-center space-x-3 px-3 py-2.5 cursor-pointer transition"
+           onclick="selectResult(${i})">
+        <div class="w-10 h-10 bg-slate-700/60 rounded-xl flex items-center justify-center font-bold text-slate-100 compact-char shrink-0"
+             style="font-size:${c.word.length === 1 ? '1.4rem' : c.word.length <= 3 ? '1rem' : '0.75rem'}">
+          ${c.word.length > 4 ? c.word.slice(0,4)+'…' : c.word}
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline space-x-2 flex-wrap">
+            <span class="text-[11px] text-sky-400 font-medium">${c.pinyin}</span>
+            <span class="text-[12px] font-black text-amber-400 tracking-wide">${c.hanviet}</span>
+          </div>
+          <div class="text-xs text-slate-500 truncate">${c.def}</div>
+        </div>
+        ${c.hsk ? `<span class="text-[10px] bg-amber-500/15 text-amber-400/80 font-bold px-1.5 py-0.5 rounded-lg shrink-0">HSK${c.hsk}</span>` : ''}
+      </div>
+    `).join('');
+    // store results for onclick lookup
+    window._lastSearchResults = results;
+  }
+  document.getElementById('search-results').classList.remove('hidden');
+}
+
+function selectResult(idx) {
+  const result = window._lastSearchResults[idx];
+  if (!result) return;
+  hideSearchResults();
+  document.getElementById('search-input').value = result.word;
+  if (result._isSingleChar) {
+    // Single character — go straight to card
+    loadCharCard(result.word);
+  } else {
+    // Compound word — open word sheet
+    openWordSheet(result);
+  }
+}
+
+function openWordSheet(result) {
+  const sheet = document.getElementById('word-sheet');
+  const backdrop = document.getElementById('word-sheet-backdrop');
+
+  // Fill chars row — every character is tappable; unknown ones show a "demo only" note
+  const charsRow = document.getElementById('ws-chars-row');
+  charsRow.innerHTML = [...result.word].map(ch => {
+    const isKnown = !!CHARACTERS[ch];
+    return `<button onclick="sheetCharTap('${ch}')"
+      class="text-5xl font-bold leading-none compact-char transition transform hover:scale-110 active:scale-95
+             ${isKnown ? 'text-white hover:text-amber-400' : 'text-slate-300 hover:text-sky-400'}"
+      title="Open dict card for ${ch}"
+    >${ch}</button>`;
+  }).join('<span class="text-slate-600 self-end mb-1 text-2xl font-light mx-0.5">·</span>');
+
+  document.getElementById('ws-pinyin').textContent = result.pinyin;
+  document.getElementById('ws-hanviet').textContent = result.hanviet;
+  document.getElementById('ws-def').textContent = result.def;
+  const hskEl = document.getElementById('ws-hsk');
+  if (result.hsk) { hskEl.textContent = 'HSK ' + result.hsk; hskEl.classList.remove('hidden'); }
+  else { hskEl.classList.add('hidden'); }
+
+  backdrop.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    sheet.style.transform = 'translateY(0)';
+  });
+
+  // Show the chip so user can reopen after dismissing
+  window._lastWordSheetResult = result;
+  const chip = document.getElementById('last-word-chip');
+  document.getElementById('chip-word').textContent = result.word.length > 3 ? result.word.slice(0,3)+'…' : result.word;
+  document.getElementById('chip-hanviet').textContent = result.hanviet;
+  document.getElementById('chip-def').textContent = result.def.length > 28 ? result.def.slice(0,28)+'…' : result.def;
+  chip.classList.remove('hidden');
+}
+
+function sheetCharTap(ch) {
+  closeWordSheet();
+  setTimeout(() => {
+    if (CHARACTERS[ch]) {
+      loadCharCard(ch);
+    } else {
+      // Character not in demo DB — show empty state with the symbol
+      loadCharCard(ch);
+    }
+  }, 200);
+}
+
+function closeWordSheet() {
+  const sheet = document.getElementById('word-sheet');
+  const backdrop = document.getElementById('word-sheet-backdrop');
+  sheet.style.transform = 'translateY(100%)';
+  setTimeout(() => backdrop.classList.add('hidden'), 300);
+}
+
+function reopenWordSheet() {
+  if (window._lastWordSheetResult) openWordSheet(window._lastWordSheetResult);
+}
+
+function showSearchResults() {
+  const val = document.getElementById('search-input').value;
+  if (val.length > 0) handleSearch(val);
+}
+
+function hideSearchResults() {
+  document.getElementById('search-results').classList.add('hidden');
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('clear-btn').classList.add('hidden');
+  document.getElementById('last-word-chip').classList.add('hidden');
+  window._lastWordSheetResult = null;
+  hideSearchResults();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#search-input') && !e.target.closest('#search-results')) {
+    hideSearchResults();
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#search-input') && !e.target.closest('#search-results')) {
+    hideSearchResults();
+  }
+});
+
+// ─── BOOKMARK ────────────────────────────────────────────────────────────────
+function toggleBookmark() {
+  const btn = document.getElementById('bookmark-btn');
+  if (bookmarkSet.has(currentChar)) {
+    bookmarkSet.delete(currentChar);
+    btn.classList.remove('text-amber-400');
+  } else {
+    bookmarkSet.add(currentChar);
+    btn.classList.add('text-amber-400');
+  }
+  renderBookmarksGrid();
+}
+
+// ─── GRAPH ───────────────────────────────────────────────────────────────────
+function renderRadicalGrid() {
+  const grid = document.getElementById('radical-grid');
+  grid.innerHTML = RADICALS.map(r => `
+    <button onclick="selectRadical('${r.sym}')"
+            class="flex flex-col items-center justify-center p-2 rounded-xl border transition
+                   ${activeGraph === r.sym ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-slate-900/50 border-slate-700/40 text-slate-300 hover:border-slate-600'}">
+      <span class="text-lg font-bold compact-char leading-none">${r.sym}</span>
+      <span class="text-[8px] text-slate-500 font-semibold mt-0.5">${r.hv}</span>
+    </button>
+  `).join('');
+}
+
+function selectRadical(sym) {
+  if (!GRAPH_DATA[sym]) return;
+  activeGraph = sym;
+  activeGraphChar = null;
+  document.getElementById('active-radical-label').textContent = GRAPH_DATA[sym].label;
+  toggleRadicalPicker();
+  renderRadicalGrid();
+  renderGraph(sym);
+  // Update inspector
+  const g = GRAPH_DATA[sym];
+  updateInspector(sym, g.pinyin, g.hanviet, 'Root', g.def);
+}
+
+function toggleRadicalPicker() {
+  const panel = document.getElementById('radical-picker');
+  panel.classList.toggle('hidden');
+}
+
+function renderGraph(radicalKey) {
+  const g = getMergedGraph(radicalKey);
+  if (!g) return;
+
+  const svg = document.getElementById('graph-svg');
+  const w = svg.clientWidth || 345;
+  const h = Math.max(svg.clientHeight, 260);
+
+  // Empty state for "My words" filter with no learned nodes yet
+  if (g._empty) {
+    document.getElementById('graph-edges').innerHTML = '';
+    document.getElementById('graph-nodes').innerHTML = `
+      <g>
+        <rect x="${w/2 - 30}" y="30" width="60" height="56" rx="16" fill="#f59e0b" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="${w/2}" y="56" text-anchor="middle" font-size="26" font-weight="900" fill="#1c1917" class="compact-char">${radicalKey}</text>
+        <text x="${w/2}" y="74" text-anchor="middle" font-size="8" font-weight="800" fill="#78350f" letter-spacing="0.08em">${g.hanviet}</text>
+      </g>
+      <text x="${w/2}" y="${h/2 - 10}" text-anchor="middle" font-size="13" fill="#475569">No learned words yet</text>
+      <text x="${w/2}" y="${h/2 + 12}" text-anchor="middle" font-size="11" fill="#334155">Tap  +  to add your first word</text>`;
+    return;
+  }
+
+  const tier1 = { x: w / 2, y: 54 };
+  const numChars = g.chars.length;
+  const tier2 = g.chars.map((_, i) => ({
+    x: w / (numChars + 1) * (i + 1),
+    y: h * 0.44
+  }));
+
+  // Build tier3 positions — keep 30px clear of the bottom
+  const tier3All = [];
+  g.chars.forEach((ch, ci) => {
+    const comps = g.compounds[ch.symbol] || [];
+    const xBase = tier2[ci].x;
+    const step = Math.min(54, w / (numChars * 2 + 1));
+    comps.forEach((cmp, j) => {
+      const offset = (j - (comps.length - 1) / 2) * step;
+      tier3All.push({ ...cmp, x: xBase + offset, y: h - 30, parentIdx: ci });
+    });
+  });
+
+  // Render edges
+  const edgesG = document.getElementById('graph-edges');
+  let edgeHtml = '';
+  tier2.forEach((t2, i) => {
+    const isLearned = g.chars[i].learned;
+    edgeHtml += `<line x1="${tier1.x}" y1="${tier1.y + 28}" x2="${t2.x}" y2="${t2.y - 22}"
+      stroke="${isLearned ? '#a78bfa' : (activeGraphChar === g.chars[i].symbol ? '#f59e0b' : '#334155')}"
+      stroke-width="${isLearned ? '1.5' : '1.5'}" stroke-dasharray="${isLearned ? '4 3' : 'none'}" opacity="${isLearned ? 0.5 : 1}"/>`;
+  });
+  tier3All.forEach(t3 => {
+    const t2 = tier2[t3.parentIdx];
+    const isActive = activeGraphChar === g.chars[t3.parentIdx].symbol;
+    const isLearned = t3.learned;
+    edgeHtml += `<line x1="${t2.x}" y1="${t2.y + 20}" x2="${t3.x}" y2="${t3.y - 14}"
+      stroke="${isLearned ? '#a78bfa' : (isActive ? '#f59e0b' : '#334155')}"
+      stroke-width="1.5" stroke-dasharray="${isLearned ? '4 3' : 'none'}" opacity="${isLearned ? 0.5 : 1}"/>`;
+  });
+  edgesG.innerHTML = edgeHtml;
+
+  // Render nodes
+  const nodesG = document.getElementById('graph-nodes');
+  let nodeHtml = '';
+
+  // Tier 1 root
+  nodeHtml += `<g class="cursor-pointer tier1-node" onclick="selectGraphNode('${radicalKey}', '${g.pinyin}', '${g.hanviet}', 'Root', '${g.def}', null)">
+    <rect x="${tier1.x - 30}" y="${tier1.y - 28}" width="60" height="56" rx="16" fill="#f59e0b" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="${tier1.x}" y="${tier1.y - 2}" text-anchor="middle" font-size="26" font-weight="900" fill="#1c1917" class="compact-char">${radicalKey}</text>
+    <text x="${tier1.x}" y="${tier1.y + 16}" text-anchor="middle" font-size="8" font-weight="800" fill="#78350f" letter-spacing="0.08em">${g.hanviet}</text>
+  </g>`;
+
+  // Tier 2 chars
+  tier2.forEach((t2, i) => {
+    const ch = g.chars[i];
+    const isActive = activeGraphChar === ch.symbol;
+    const isLearned = ch.learned;
+    // Seeded: solid green. Learned: dark fill + violet dashed border + glow
+    const fill   = isLearned ? '#1e1b4b' : (isActive ? '#059669' : '#047857');
+    const stroke = isLearned ? '#a78bfa'  : (isActive ? '#34d399' : '#10b981');
+    const sw     = isLearned ? '2' : '1.5';
+    const dash   = isLearned ? 'stroke-dasharray="5 3"' : '';
+    const textCol = isLearned ? '#c4b5fd' : 'white';
+    const subCol  = isLearned ? '#a78bfa'  : '#a7f3d0';
+    const badge   = isLearned ? `<text x="${t2.x + 18}" y="${t2.y - 22}" text-anchor="middle" font-size="8" fill="#a78bfa">✦</text>` : '';
+    nodeHtml += `<g class="cursor-pointer tier2-node" onclick="selectGraphNode('${ch.symbol}', '${ch.pinyin}', '${ch.hanviet}', '${isLearned ? 'Learned' : 'Character'}', '${ch.def}', '${ch.symbol}')">
+      <rect x="${t2.x - 26}" y="${t2.y - 20}" width="52" height="40" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" ${dash} opacity="${isActive || isLearned ? 1 : 0.85}"/>
+      <text x="${t2.x}" y="${t2.y - 2}" text-anchor="middle" font-size="18" font-weight="700" fill="${textCol}" class="compact-char">${ch.symbol}</text>
+      <text x="${t2.x}" y="${t2.y + 14}" text-anchor="middle" font-size="7.5" font-weight="800" fill="${subCol}" letter-spacing="0.07em">${ch.hanviet}</text>
+      ${badge}
+    </g>`;
+  });
+
+  // Tier 3 compounds
+  tier3All.forEach(t3 => {
+    const isParentActive = activeGraphChar === g.chars[t3.parentIdx].symbol;
+    const isLearned = t3.learned;
+    const res = t3.resonance || 'medium';
+
+    // Resonance-aware visual weight (only in 'all' mode — filtered modes already stripped low nodes)
+    const resOpacity = graphFilter === 'all'
+      ? (res === 'high' ? 1 : res === 'medium' ? 0.7 : 0.38)
+      : 1;
+    const baseOpacity = (isParentActive || isLearned) ? resOpacity : resOpacity * 0.6;
+
+    // Stroke colour: learned=violet, high=sky, medium=slate-blue, low=slate
+    const stroke  = isLearned ? '#a78bfa'
+                  : res === 'high'   ? '#38bdf8'
+                  : res === 'medium' ? '#6366f1'
+                  : '#475569';
+    const dash    = isLearned ? 'stroke-dasharray="4 3"' : '';
+    const fill    = isLearned ? '#1e1b4b' : '#0f172a';
+    const textCol = isLearned ? '#c4b5fd'
+                  : res === 'high'   ? '#7dd3fc'
+                  : res === 'medium' ? '#a5b4fc'
+                  : '#64748b';
+    const hvCol   = isLearned ? '#a78bfa'
+                  : res === 'high'   ? '#f59e0b'
+                  : res === 'medium' ? '#fb923c'
+                  : '#64748b';
+
+    // Small resonance dot on high-resonance nodes
+    const dot = (!isLearned && res === 'high')
+      ? `<circle cx="${t3.x + 24}" cy="${t3.y - 10}" r="3" fill="#f59e0b" opacity="0.9"/>`
+      : '';
+
+    nodeHtml += `<g class="cursor-pointer tier3-node" style="opacity:${baseOpacity}" onclick="selectGraphNode('${t3.word}', '', '${t3.hanviet}', '${isLearned ? 'Learned word' : 'Compound'}', '${t3.def}', null)">
+      <rect x="${t3.x - 28}" y="${t3.y - 14}" width="56" height="28" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="${isLearned ? 1.5 : 1}" ${dash} opacity="0.95"/>
+      <text x="${t3.x}" y="${t3.y - 1}" text-anchor="middle" font-size="12" font-weight="700" fill="${textCol}" class="compact-char">${t3.word}</text>
+      <text x="${t3.x}" y="${t3.y + 11}" text-anchor="middle" font-size="7" font-weight="800" fill="${hvCol}" letter-spacing="0.05em">${t3.hanviet}</text>
+      ${dot}
+    </g>`;
+  });
+
+  nodesG.innerHTML = nodeHtml;
+}
+
+function selectGraphNode(sym, pinyin, hanviet, type, def, charForExpand) {
+  activeGraphChar = charForExpand;
+  updateInspector(sym, pinyin, hanviet, type, def);
+  renderGraph(activeGraph);
+}
+
+function updateInspector(sym, pinyin, hanviet, type, def) {
+  document.getElementById('insp-symbol').textContent = sym;
+  document.getElementById('insp-pinyin').textContent = pinyin;
+  document.getElementById('insp-hanviet').textContent = hanviet;
+  document.getElementById('insp-type').textContent = type;
+  document.getElementById('insp-def').textContent = def;
+}
+
+function inspectFull() {
+  const sym = document.getElementById('insp-symbol').textContent;
+  if (CHARACTERS[sym]) {
+    loadCharCard(sym);
+    switchTab('card');
+  } else {
+    // Try to find a matching character from search
+    const found = SEARCH_DATA.find(c => c.symbol === sym[0]);
+    if (found) { loadCharCard(found.symbol); switchTab('card'); }
+  }
+}
+
+// ─── READING HISTORY ─────────────────────────────────────────────────────────
+let readingHistory = [];
+let harvestFilter = 'all';
+let harvestWords = [];
+let starredWords = new Set();
+
+function loadReadingHistory() {
+  try {
+    const raw = localStorage.getItem('sinosphere_history');
+    if (raw) readingHistory = JSON.parse(raw);
+  } catch(e) { readingHistory = []; }
+}
+
+function saveReadingHistory() {
+  localStorage.setItem('sinosphere_history', JSON.stringify(readingHistory.slice(0, 20)));
+}
+
+function toggleHistoryPanel() {
+  const overlay = document.getElementById('history-overlay');
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+  renderHistoryList();
+}
+
+function closeHistoryOverlay() {
+  const overlay = document.getElementById('history-overlay');
+  overlay.classList.add('hidden');
+  overlay.classList.remove('flex');
+}
+
+function renderHistoryList() {
+  const list  = document.getElementById('history-list');
+  const empty = document.getElementById('history-empty');
+  if (readingHistory.length === 0) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    empty.classList.add('flex');
+    return;
+  }
+  empty.classList.add('hidden');
+  empty.classList.remove('flex');
+  list.innerHTML = readingHistory.map((h, i) => `
+    <div class="flex items-center justify-between px-4 py-4 hover:bg-slate-800/60 active:bg-slate-800 cursor-pointer transition"
+         onclick="loadFromHistory(${i})">
+      <div class="flex items-center space-x-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center shrink-0 text-lg">
+          📄
+        </div>
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-slate-100 truncate">${h.title}</div>
+          <div class="flex items-center space-x-2 mt-0.5">
+            <span class="text-[11px] text-slate-500">${h.date}</span>
+            <span class="text-[10px] bg-slate-700/60 text-slate-400 px-1.5 py-0.5 rounded-md">${h.tokens.filter(t => t.def).length} words</span>
+            <span class="text-[10px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-md">${h.tokens.filter(t => t.resonance === 'high').length} HV</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2 shrink-0 ml-3">
+        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <button onclick="deleteHistory(${i}); event.stopPropagation()"
+                class="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+function loadFromHistory(idx) {
+  const h = readingHistory[idx];
+  document.getElementById('snippet-title').textContent = h.title;
+  renderAnnotatedText(h.tokens);
+  buildHarvestPanel(h.tokens);
+  closeHistoryOverlay();
+  highlightSnippetTab(-1);
+}
+
+function deleteHistory(idx) {
+  readingHistory.splice(idx, 1);
+  saveReadingHistory();
+  renderHistoryList();
+}
+
+function clearHistory() {
+  if (!confirm('Clear all reading history?')) return;
+  readingHistory = [];
+  saveReadingHistory();
+  renderHistoryList();
+}
+
+// ─── READER ───────────────────────────────────────────────────────────────────
+function loadSnippet(idx) {
+  currentSnippet = idx;
+  const snippet = SNIPPETS[idx];
+  document.getElementById('snippet-title').textContent = snippet ? snippet.title : 'Custom Text';
+  if (snippet) {
+    renderAnnotatedText(snippet.words);
+    buildHarvestPanel(snippet.words);
+  }
+  highlightSnippetTab(idx);
+}
+
+function highlightSnippetTab(activeIdx) {
+  document.querySelectorAll('.snippet-tab').forEach((btn, i) => {
+    const on = i === activeIdx;
+    btn.classList.toggle('bg-amber-500/20', on);
+    btn.classList.toggle('text-amber-400', on);
+    btn.classList.toggle('border-amber-500/30', on);
+    btn.classList.toggle('bg-slate-700/50', !on);
+    btn.classList.toggle('text-slate-400', !on);
+    btn.classList.toggle('border-slate-700', !on);
+  });
+}
+
+function renderAnnotatedText(words) {
+  const container = document.getElementById('reader-text');
+  container.innerHTML = words.map(w => {
+    if (w.text === '。' || w.text === '，' || !w.def) {
+      return `<span class="text-slate-500 self-end pb-1">${w.text}</span>`;
+    }
+    const annotation = readerMode === 'hanviet' ? w.hanviet : w.pinyin;
+    const isSinoViet = w.hanviet && w.hanviet.length > 1 && w.hanviet !== w.text;
+    const borderClass = isSinoViet ? 'border-b-2 border-amber-500/60' : '';
+    return `<ruby class="cursor-pointer hover:bg-slate-700/50 rounded-lg px-1 pb-0.5 transition ${borderClass}"
+                  onclick="openReaderModal('${w.text}', '${w.hanviet}', '${w.pinyin}', '${w.def}')">
+      ${w.text}<rt>${annotation || ''}</rt>
+    </ruby>`;
+  }).join(' ');
+}
+
+function setReaderMode(mode) {
+  readerMode = mode;
+  document.getElementById('mode-hanviet').className = `text-[10px] px-2.5 py-1 rounded-xl font-bold transition ${mode === 'hanviet' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-700/50 text-slate-400 border border-slate-700'}`;
+  document.getElementById('mode-pinyin').className  = `text-[10px] px-2.5 py-1 rounded-xl font-bold transition ${mode === 'pinyin'  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-700/50 text-slate-400 border border-slate-700'}`;
+  if (SNIPPETS[currentSnippet]) renderAnnotatedText(SNIPPETS[currentSnippet].words);
+}
+
+function annotateCustomText() {
+  const raw   = document.getElementById('custom-text-input').value.trim();
+  const title = document.getElementById('custom-title-input').value.trim()
+    || 'Custom · ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  if (!raw) return;
+
+  const fakeAnnotations = {
+    '你好': { hv: 'NHĨ HẢO',    py: 'nǐ hǎo',    def: 'Hello, Hi',           res: 'high'   },
+    '中国': { hv: 'TRUNG QUỐC', py: 'zhōng guó', def: 'China',               res: 'high'   },
+    '北京': { hv: 'BẮC KINH',   py: 'Běijīng',   def: 'Beijing',             res: 'high'   },
+    '学习': { hv: 'HỌC TẬP',    py: 'xué xí',    def: 'Study, Learn',        res: 'high'   },
+    '工作': { hv: 'CÔNG TÁC',   py: 'gōng zuò',  def: 'Work, Job',           res: 'high'   },
+    '朋友': { hv: 'BẰNG HỮU',   py: 'péng yǒu',  def: 'Friend',              res: 'medium' },
+    '城市': { hv: 'THÀNH THỊ',  py: 'chéng shì', def: 'City',                res: 'medium' },
+    '音乐': { hv: 'ÂM NHẠC',    py: 'yīn yuè',   def: 'Music',               res: 'high'   },
+    '时间': { hv: 'THỜI GIAN',  py: 'shí jiān',  def: 'Time',                res: 'high'   },
+    '心情': { hv: 'TÂM TÌNH',   py: 'xīn qíng',  def: 'Mood, Feeling',       res: 'high'   },
+    '感情': { hv: 'CẢM TÌNH',   py: 'gǎn qíng',  def: 'Feelings, Affection', res: 'high'   },
+    '大学': { hv: 'ĐẠI HỌC',    py: 'dà xué',    def: 'University',          res: 'high'   },
+    '明天': { hv: 'MINH THIÊN', py: 'míng tiān', def: 'Tomorrow',            res: 'medium' },
+    '海洋': { hv: 'HẢI DƯƠNG',  py: 'hǎi yáng',  def: 'Ocean',               res: 'high'   },
+    '理想': { hv: 'LÝ TƯỞNG',   py: 'lǐ xiǎng',  def: 'Ideal, Dream',        res: 'high'   },
+    '世界': { hv: 'THẾ GIỚI',   py: 'shì jiè',   def: 'World',               res: 'high'   },
+    '自由': { hv: 'TỰ DO',      py: 'zì yóu',    def: 'Freedom',             res: 'high'   },
+    '快乐': { hv: 'KHOÁI LẠC',  py: 'kuài lè',   def: 'Happiness',           res: 'high'   },
+    '思念': { hv: 'TƯ NIỆM',    py: 'sī niàn',   def: 'Miss, Long for',      res: 'high'   },
+    '记忆': { hv: 'KÝ ỨC',      py: 'jì yì',     def: 'Memory',              res: 'high'   },
+    '故事': { hv: 'CỐ SỰ',      py: 'gù shì',    def: 'Story',               res: 'high'   },
+  };
+
+  const tokens = [];
+  let i = 0;
+  while (i < raw.length) {
+    const bigram = raw.slice(i, i + 2);
+    if (fakeAnnotations[bigram]) {
+      const a = fakeAnnotations[bigram];
+      tokens.push({ text: bigram, hanviet: a.hv, pinyin: a.py, def: a.def, resonance: a.res });
+      i += 2;
+    } else {
+      const ch = raw[i];
+      const code = ch.charCodeAt(0);
+      const isCJK = code >= 0x4e00 && code <= 0x9fff;
+      tokens.push({ text: ch, hanviet: isCJK ? '···' : '', pinyin: isCJK ? '—' : '', def: isCJK ? ch : '', resonance: 'low' });
+      i++;
+    }
+  }
+
+  const filtered = tokens.filter(t => t.text.trim());
+  document.getElementById('snippet-title').textContent = title;
+  renderAnnotatedText(filtered);
+  buildHarvestPanel(filtered);
+
+  const now = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+  readingHistory.unshift({ title, raw, tokens: filtered, date: now });
+  saveReadingHistory();
+
+  document.getElementById('custom-text-input').value = '';
+  document.getElementById('custom-title-input').value = '';
+  highlightSnippetTab(2);
+}
+
+// ─── VOCABULARY HARVEST ───────────────────────────────────────────────────────
+function buildHarvestPanel(tokens) {
+  const seen = new Set();
+  harvestWords = [];
+  tokens.forEach(t => {
+    if (t.def && t.text && !seen.has(t.text)) {
+      seen.add(t.text);
+      harvestWords.push({ ...t, starred: starredWords.has(t.text) });
+    }
+  });
+  harvestFilter = 'all';
+  setHarvestFilter('all');
+  document.getElementById('harvest-panel').classList.remove('hidden');
+  document.getElementById('harvest-summary').textContent =
+    `${harvestWords.length} unique words · ${harvestWords.filter(w => w.resonance === 'high').length} strong HV cognates`;
+}
+
+function setHarvestFilter(filter) {
+  harvestFilter = filter;
+  ['all', 'high', 'new'].forEach(f => {
+    const btn = document.getElementById(`hf-${f}`);
+    const on = f === filter;
+    btn.classList.toggle('border-amber-500', on);
+    btn.classList.toggle('text-amber-400', on);
+    btn.classList.toggle('border-transparent', !on);
+    btn.classList.toggle('text-slate-500', !on);
+  });
+  renderHarvestList();
+}
+
+function isWordInGraph(word) {
+  for (const rd of Object.values(GRAPH_DATA)) {
+    for (const cds of Object.values(rd.compounds)) {
+      if (cds.find(c => c.word === word)) return true;
+    }
+  }
+  for (const ud of Object.values(userGraphData)) {
+    for (const cds of Object.values(ud.compounds || {})) {
+      if (cds.find(c => c.word === word)) return true;
+    }
+  }
+  return false;
+}
+
+function renderHarvestList() {
+  const list = document.getElementById('harvest-list');
+  let words = harvestWords;
+  if (harvestFilter === 'high') words = words.filter(w => w.resonance === 'high');
+  if (harvestFilter === 'new')  words = words.filter(w => !isWordInGraph(w.text));
+
+  if (words.length === 0) {
+    list.innerHTML = `<div class="px-4 py-4 text-[11px] text-slate-600 italic text-center">No words match this filter.</div>`;
+    return;
+  }
+
+  list.innerHTML = words.map(w => {
+    const inGraph   = isWordInGraph(w.text);
+    const isStarred = starredWords.has(w.text);
+    const resDot    = w.resonance === 'high' ? 'bg-amber-400' : w.resonance === 'medium' ? 'bg-sky-400' : 'bg-slate-600';
+    const hvSafe    = (w.hanviet || '').replace(/'/g, '&#39;');
+    const defSafe   = (w.def     || '').replace(/'/g, '&#39;');
+    const pySafe    = (w.pinyin  || '').replace(/'/g, '&#39;');
+    return `<div class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-700/20 transition">
+      <div class="flex items-center space-x-2.5 min-w-0">
+        <button onclick="toggleHarvestStar('${w.text}')"
+                class="shrink-0 transition" style="color:${isStarred ? '#f59e0b' : '#475569'}">
+          <svg class="w-4 h-4" fill="${isStarred ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+          </svg>
+        </button>
+        <div class="w-1.5 h-1.5 rounded-full ${resDot} shrink-0"></div>
+        <span class="text-base font-bold text-slate-100 compact-char">${w.text}</span>
+        <span class="text-xs text-amber-400 font-bold">${w.hanviet || ''}</span>
+        <span class="text-xs text-slate-500 truncate">${w.def}</span>
+      </div>
+      <div class="shrink-0 ml-2">
+        ${inGraph
+          ? `<span class="text-[9px] text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md font-bold">In graph</span>`
+          : `<button onclick="addSingleWordToGraph('${w.text}','${hvSafe}','${pySafe}','${defSafe}')"
+                     class="text-[9px] bg-slate-700 hover:bg-emerald-500/20 hover:text-emerald-400 text-slate-400 px-2 py-0.5 rounded-md font-bold transition">+ Graph</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleHarvestStar(word) {
+  if (starredWords.has(word)) starredWords.delete(word);
+  else starredWords.add(word);
+  harvestWords = harvestWords.map(w => ({ ...w, starred: starredWords.has(w.text) }));
+  renderHarvestList();
+}
+
+function addSingleWordToGraph(word, hanviet, pinyin, def) {
+  const radical = detectRadical(word);
+  if (!userGraphData[radical]) userGraphData[radical] = { chars: [], compounds: {} };
+  const merged = getMergedGraph(radical);
+  let parentChar = null;
+  for (const ch of merged.chars) {
+    if (word.includes(ch.symbol)) { parentChar = ch.symbol; break; }
+  }
+  if (!parentChar && merged.chars.length > 0) parentChar = merged.chars[0].symbol;
+  if (!parentChar) { alert('No parent character found. Add the single character first.'); return; }
+  if (!userGraphData[radical].compounds[parentChar]) userGraphData[radical].compounds[parentChar] = [];
+  userGraphData[radical].compounds[parentChar].push({ word, hanviet, def, learned: true });
+  saveUserGraph();
+  renderHarvestList();
+}
+
+function addStarredToGraph() {
+  const starred = harvestWords.filter(w => starredWords.has(w.text) && !isWordInGraph(w.text));
+  if (starred.length === 0) { alert('No new starred words to add. Star some words first.'); return; }
+  starred.forEach(w => addSingleWordToGraph(w.text, w.hanviet || '', w.pinyin || '', w.def || w.text));
+  alert(`Added ${starred.length} word${starred.length > 1 ? 's' : ''} to your graph.`);
+}
+
+// ─── READER MODAL ─────────────────────────────────────────────────────────────
+function openReaderModal(word, hanviet, pinyin, def) {
+  document.getElementById('modal-word').textContent    = word;
+  document.getElementById('modal-hanviet').textContent = hanviet || '—';
+  document.getElementById('modal-pinyin').textContent  = pinyin  || '—';
+  document.getElementById('modal-def').textContent     = def     || '—';
+
+  const mc = document.getElementById('modal-components');
+  mc.innerHTML = [...word].map(ch => {
+    const charData = CHARACTERS[ch];
+    return charData
+      ? `<div class="shrink-0 flex flex-col items-center bg-slate-700/50 border border-slate-600/40 rounded-xl px-3 py-2 cursor-pointer hover:border-amber-500/40 transition"
+              onclick="loadCharCard('${ch}'); closeReaderModal(); switchTab('card')">
+           <span class="text-xl font-bold text-slate-100 compact-char">${ch}</span>
+           <span class="text-[9px] font-black text-amber-400 mt-0.5">${charData.hanviet}</span>
+         </div>`
+      : `<div class="shrink-0 flex flex-col items-center bg-slate-700/30 border border-slate-700/40 rounded-xl px-3 py-2 opacity-60">
+           <span class="text-xl font-bold text-slate-300 compact-char">${ch}</span>
+         </div>`;
+  }).join('');
+
+  const statusEl = document.getElementById('modal-graph-status');
+  const btn      = document.getElementById('modal-add-graph-btn');
+  if (isWordInGraph(word)) {
+    statusEl.className = 'text-[11px] px-3 py-1.5 rounded-xl flex items-center space-x-1.5 bg-emerald-500/10 text-emerald-400';
+    statusEl.innerHTML = `<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Already in your graph</span>`;
+    statusEl.classList.remove('hidden');
+    btn.disabled  = true;
+    btn.className = 'py-2.5 bg-slate-700/50 border border-slate-700 text-slate-500 font-bold text-xs rounded-xl cursor-not-allowed';
+    btn.textContent = 'In graph';
+  } else {
+    statusEl.classList.add('hidden');
+    btn.disabled  = false;
+    btn.className = 'py-2.5 bg-emerald-500/20 border border-emerald-500/30 hover:bg-emerald-500/30 text-emerald-400 font-bold text-xs rounded-xl transition';
+    btn.textContent = '+ Add to Graph';
+  }
+
+  document.getElementById('reader-modal').classList.remove('translate-y-full');
+}
+
+function closeReaderModal() {
+  document.getElementById('reader-modal').classList.add('translate-y-full');
+}
+
+function openFullCard() {
+  const word = document.getElementById('modal-word').textContent;
+  const firstChar = [...word][0];
+  if (CHARACTERS[firstChar]) loadCharCard(firstChar);
+  closeReaderModal();
+  switchTab('card');
+}
+
+function bookmarkFromModal() {
+  const word = document.getElementById('modal-word').textContent;
+  if (!bookmarkSet.has(word)) { bookmarkSet.add(word); renderBookmarksGrid(); }
+}
+
+function addModalWordToGraph() {
+  const word    = document.getElementById('modal-word').textContent;
+  const hanviet = document.getElementById('modal-hanviet').textContent;
+  const pinyin  = document.getElementById('modal-pinyin').textContent;
+  const def     = document.getElementById('modal-def').textContent;
+  if (isWordInGraph(word)) return;
+  addSingleWordToGraph(word, hanviet === '—' ? '' : hanviet, pinyin === '—' ? '' : pinyin, def === '—' ? word : def);
+  openReaderModal(word, hanviet, pinyin, def);
+}
+
+function saveToDeckFromModal() {
+  const word = document.getElementById('modal-word').textContent;
+  if (userDecks.length === 0) {
+    const name = prompt(`No custom collections yet. Enter a name to create one and save "${word}" to it:`);
+    if (!name || !name.trim()) return;
+    userDecks.push({ name: name.trim(), count: 1, icon: '📂' });
+    saveUserDecks(); renderDecks();
+    alert(`"${word}" saved to "${name.trim()}".`);
+    return;
+  }
+  const opts = userDecks.map((d, i) => `${i + 1}. ${d.name}`).join('\n');
+  const choice = prompt(`Save "${word}" to:\n${opts}\n\nEnter a number, or type a new deck name:`);
+  if (!choice) return;
+  const idx = parseInt(choice) - 1;
+  if (!isNaN(idx) && idx >= 0 && idx < userDecks.length) {
+    userDecks[idx].count++;
+    saveUserDecks(); renderDecks();
+    alert(`"${word}" saved to "${userDecks[idx].name}".`);
+  } else {
+    userDecks.push({ name: choice.trim(), count: 1, icon: '📂' });
+    saveUserDecks(); renderDecks();
+    alert(`"${word}" saved to new deck "${choice.trim()}".`);
+  }
+}
+
+
+
+// ─── DECKS ────────────────────────────────────────────────────────────────────
+function renderDecks() {
+  // ── HSK grid ──────────────────────────────────────────────────────────────
+  const hskGrid = document.getElementById('hsk-deck-grid');
+  hskGrid.innerHTML = HSK_DECKS.map(d => `
+    <div class="flex flex-col items-center justify-center p-3 ${d.bg} border ${d.border} rounded-2xl cursor-pointer hover:opacity-90 active:scale-95 transition space-y-1">
+      <div class="text-[10px] font-black ${d.text} uppercase tracking-widest">HSK ${d.level}</div>
+      <div class="text-lg font-black text-slate-100">${d.count.toLocaleString()}</div>
+      <div class="text-[9px] text-slate-500 font-medium">${d.desc}</div>
+    </div>`).join('');
+
+  // ── Topic list ─────────────────────────────────────────────────────────────
+  const colorMap = {
+    emerald: { bg: 'bg-emerald-500/12', border: 'border-emerald-500/25', text: 'text-emerald-400', badge: 'bg-emerald-500/20' },
+    red:     { bg: 'bg-red-500/12',     border: 'border-red-500/25',     text: 'text-red-400',     badge: 'bg-red-500/20' },
+    sky:     { bg: 'bg-sky-500/12',     border: 'border-sky-500/25',     text: 'text-sky-400',     badge: 'bg-sky-500/20' },
+    violet:  { bg: 'bg-violet-500/12',  border: 'border-violet-500/25',  text: 'text-violet-400',  badge: 'bg-violet-500/20' },
+    amber:   { bg: 'bg-amber-500/12',   border: 'border-amber-500/25',   text: 'text-amber-400',   badge: 'bg-amber-500/20' },
+    rose:    { bg: 'bg-rose-500/12',    border: 'border-rose-500/25',    text: 'text-rose-400',    badge: 'bg-rose-500/20' },
+    indigo:  { bg: 'bg-indigo-500/12',  border: 'border-indigo-500/25',  text: 'text-indigo-400',  badge: 'bg-indigo-500/20' },
+    teal:    { bg: 'bg-teal-500/12',    border: 'border-teal-500/25',    text: 'text-teal-400',    badge: 'bg-teal-500/20' },
+    orange:  { bg: 'bg-orange-500/12',  border: 'border-orange-500/25',  text: 'text-orange-400',  badge: 'bg-orange-500/20' },
+    slate:   { bg: 'bg-slate-700/40',   border: 'border-slate-600/40',   text: 'text-slate-300',   badge: 'bg-slate-600/50' },
+    pink:    { bg: 'bg-pink-500/12',    border: 'border-pink-500/25',    text: 'text-pink-400',    badge: 'bg-pink-500/20' },
+  };
+
+  const topicList = document.getElementById('topic-deck-list');
+  topicList.innerHTML = TOPIC_DECKS.map(d => {
+    const c = colorMap[d.color] || colorMap.slate;
+    const featuredBadge = d.featured
+      ? `<span class="text-[9px] font-black text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded-md ml-1">★ ANCHOR</span>`
+      : '';
+    const resBadge = d.resonance === 'high'
+      ? `<span class="text-[9px] font-bold text-amber-400/80">● Strong HV</span>`
+      : `<span class="text-[9px] font-bold text-slate-500">◌ Mixed HV</span>`;
+    return `<div class="flex items-center justify-between px-3.5 py-3 ${c.bg} border ${c.border} rounded-2xl cursor-pointer hover:opacity-90 active:scale-[0.99] transition">
+      <div class="flex items-center space-x-3 min-w-0">
+        <span class="text-xl shrink-0">${d.icon}</span>
+        <div class="min-w-0">
+          <div class="text-sm font-bold text-slate-200 flex items-center flex-wrap">${d.name}${featuredBadge}</div>
+          <div class="flex items-center space-x-2 mt-0.5">
+            <span class="text-[10px] text-slate-500">${d.desc}</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col items-end shrink-0 ml-2 space-y-0.5">
+        <span class="text-sm font-black ${c.text}">${d.count}</span>
+        ${resBadge}
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── User decks ─────────────────────────────────────────────────────────────
+  const userList = document.getElementById('user-deck-list');
+  document.getElementById('user-deck-count').textContent = `${userDecks.length} custom`;
+
+  if (userDecks.length === 0) {
+    userList.innerHTML = `<div class="text-[11px] text-slate-600 italic px-1 pb-1">No custom collections yet.</div>`;
+  } else {
+    userList.innerHTML = userDecks.map((d, i) => `
+      <div class="flex items-center justify-between px-3.5 py-3 bg-violet-500/10 border border-violet-500/20 rounded-2xl cursor-pointer hover:opacity-90 transition">
+        <div class="flex items-center space-x-3">
+          <span class="text-xl">${d.icon || '📂'}</span>
+          <div>
+            <div class="text-sm font-bold text-slate-200">${d.name}</div>
+            <div class="text-[11px] text-violet-400 font-semibold">${d.count} words</div>
+          </div>
+        </div>
+        <button onclick="deleteUserDeck(${i}); event.stopPropagation()"
+                class="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>`).join('');
+  }
+
+  // update profile counts
+  const totalCollections = 9 + TOPIC_DECKS.length + userDecks.length;
+  document.getElementById('deck-total-count').innerHTML = `${totalCollections} <span class="text-slate-500 font-normal">collections</span>`;
+  document.getElementById('deck-saved-count').innerHTML = `${bookmarkSet.size} <span class="text-slate-500 font-normal">saved</span>`;
+}
+
+function renderBookmarksGrid() {
+  const grid = document.getElementById('bookmarks-grid');
+  const chars = [...bookmarkSet].slice(0, 10);
+  grid.innerHTML = chars.map(sym => {
+    const c = CHARACTERS[sym];
+    return `<div class="aspect-square bg-slate-800/60 border border-slate-700/50 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-amber-500/40 hover:bg-slate-700/60 transition" onclick="loadCharCard('${sym}'); switchTab('card')">
+      <span class="text-2xl font-bold text-slate-100 compact-char">${sym}</span>
+      ${c ? `<span class="text-[8px] font-black text-amber-400 mt-0.5">${c.hanviet}</span>` : ''}
+    </div>`;
+  }).join('');
+  // keep deck-saved-count in sync
+  const el = document.getElementById('deck-saved-count');
+  if (el) el.innerHTML = `${bookmarkSet.size} <span class="text-slate-500 font-normal">saved</span>`;
+}
+
+function createDeck() {
+  const name = prompt('Collection name:');
+  if (!name || !name.trim()) return;
+  userDecks.push({ name: name.trim(), count: 0, icon: '📂' });
+  saveUserDecks();
+  renderDecks();
+}
+
+function deleteUserDeck(idx) {
+  if (!confirm(`Delete "${userDecks[idx].name}"?`)) return;
+  userDecks.splice(idx, 1);
+  saveUserDecks();
+  renderDecks();
+}
+
+function toggleSetting(toggle) {
+  const knob = toggle.querySelector('div');
+  const isOn = knob.classList.contains('right-0.5') || knob.classList.contains('translate-x-5');
+  if (isOn) {
+    toggle.classList.remove('bg-amber-500');
+    toggle.classList.add('bg-slate-600');
+    knob.classList.remove('right-0.5');
+    knob.classList.add('left-0.5');
+  } else {
+    toggle.classList.add('bg-amber-500');
+    toggle.classList.remove('bg-slate-600');
+    knob.classList.remove('left-0.5');
+    knob.classList.add('right-0.5');
+  }
+}
+
+// ─── ADD WORD MODAL ──────────────────────────────────────────────────────────
+
+function openAddWordModal() {
+  // Pre-fill radical hint based on active graph
+  updateAddWordHint('');
+  document.getElementById('aw-chinese').value = '';
+  document.getElementById('aw-pinyin').value = '';
+  document.getElementById('aw-hanviet').value = '';
+  document.getElementById('aw-english').value = '';
+  document.getElementById('aw-error').classList.add('hidden');
+  document.getElementById('add-word-modal').classList.remove('hidden');
+  document.getElementById('add-word-modal').classList.add('flex');
+  setTimeout(() => document.getElementById('aw-chinese').focus(), 100);
+}
+
+function closeAddWordModal() {
+  document.getElementById('add-word-modal').classList.add('hidden');
+  document.getElementById('add-word-modal').classList.remove('flex');
+}
+
+// As user types the Chinese field, detect which radical bucket it belongs to
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('aw-chinese').addEventListener('input', e => {
+    updateAddWordHint(e.target.value.trim());
+  });
+});
+
+function updateAddWordHint(text) {
+  const hint = document.getElementById('aw-radical-hint');
+  const hintText = document.getElementById('aw-radical-hint-text');
+  if (!text) { hint.classList.add('hidden'); return; }
+
+  const radical = detectRadical(text);
+  if (radical && GRAPH_DATA[radical]) {
+    const g = GRAPH_DATA[radical];
+    // Decide if it's a single character (Tier 2) or compound (Tier 3)
+    const tier = text.length === 1 ? 'new character node' : 'new compound node';
+    hintText.textContent = `Will be added as a ${tier} under ${radical} · ${g.hanviet} (${g.def})`;
+    hint.classList.remove('hidden');
+  } else {
+    hintText.textContent = `No matching radical found — will be added under the current graph (${activeGraph})`;
+    hint.classList.remove('hidden');
+  }
+}
+
+// Detect the best radical for a given Chinese string by checking each character
+// against CHAR_TO_RADICAL, falling back to the active graph
+function detectRadical(text) {
+  for (const ch of text) {
+    const r = CHAR_TO_RADICAL[ch];
+    if (r && GRAPH_DATA[r]) return r;
+  }
+  // Fallback: check if first char appears in any graph as a Tier 2 node
+  for (const [radKey, radData] of Object.entries(GRAPH_DATA)) {
+    if (radData.chars.find(c => c.symbol === text[0])) return radKey;
+  }
+  return activeGraph;
+}
+
+function submitAddWord() {
+  const chinese = document.getElementById('aw-chinese').value.trim();
+  const pinyin  = document.getElementById('aw-pinyin').value.trim();
+  const hanviet = document.getElementById('aw-hanviet').value.trim().toUpperCase();
+  const english = document.getElementById('aw-english').value.trim();
+  const errEl   = document.getElementById('aw-error');
+
+  if (!chinese || !pinyin || !english) {
+    errEl.textContent = 'Chinese, Pinyin, and English are required.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (!/[一-鿿]/.test(chinese)) {
+    errEl.textContent = 'Please enter at least one Chinese character.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  errEl.classList.add('hidden');
+  const radical = detectRadical(chinese);
+
+  if (!userGraphData[radical]) {
+    userGraphData[radical] = { chars: [], compounds: {} };
+  }
+
+  if (chinese.length === 1) {
+    // Single character → Tier 2 node
+    const alreadyInSeed = GRAPH_DATA[radical]?.chars.find(c => c.symbol === chinese);
+    const alreadyInUser = userGraphData[radical].chars.find(c => c.symbol === chinese);
+    if (alreadyInSeed || alreadyInUser) {
+      errEl.textContent = `${chinese} already exists on this graph.`;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    userGraphData[radical].chars.push({ symbol: chinese, pinyin, hanviet, def: english, learned: true });
+  } else {
+    // Compound word → find the best parent Tier 2 node, then add as Tier 3
+    const merged = getMergedGraph(radical);
+    let parentChar = null;
+    // Prefer a Tier 2 node whose symbol appears in the compound
+    for (const ch of merged.chars) {
+      if (chinese.includes(ch.symbol)) { parentChar = ch.symbol; break; }
+    }
+    // Fallback: first Tier 2 node on this graph
+    if (!parentChar && merged.chars.length > 0) parentChar = merged.chars[0].symbol;
+    if (!parentChar) {
+      errEl.textContent = 'Could not find a parent character node. Add the single character first.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (!userGraphData[radical].compounds[parentChar]) {
+      userGraphData[radical].compounds[parentChar] = [];
+    }
+    const bucket = [...(GRAPH_DATA[radical]?.compounds?.[parentChar] || []), ...userGraphData[radical].compounds[parentChar]];
+    if (bucket.find(c => c.word === chinese)) {
+      errEl.textContent = `${chinese} already exists on this graph.`;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    userGraphData[radical].compounds[parentChar].push({ word: chinese, hanviet, def: english, learned: true });
+  }
+
+  saveUserGraph();
+  activeGraph = radical;
+  document.getElementById('active-radical-label').textContent = GRAPH_DATA[radical]?.label || radical;
+  renderRadicalGrid();
+  renderGraph(radical);
+  closeAddWordModal();
+}
+</script>
+</body>
+</html>

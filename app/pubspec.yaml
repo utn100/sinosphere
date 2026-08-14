@@ -1,0 +1,59 @@
+name: sinosphere_rosetta
+description: "Sinosphere Rosetta — Hán-Việt Dictionary for Vietnamese learners of Chinese"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # SQLite / Drift
+  drift: ^2.23.1
+  drift_sqflite: ^2.0.1
+  sqflite: ^2.4.2
+  path_provider: ^2.1.5
+  path: ^1.9.1
+
+  # State management
+  flutter_riverpod: ^3.4.2
+  riverpod_annotation: ^4.0.6
+
+  # Networking (AI service)
+  http: ^1.2.2
+
+  # Secure API key storage
+  flutter_secure_storage: ^11.0.0
+
+  # URL launcher (Google lookup)
+  url_launcher: ^6.3.1
+
+  # Loading skeleton
+  shimmer: ^3.0.0
+
+  # Icons
+  cupertino_icons: ^1.0.8
+  uuid: ^4.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  drift_dev: ^2.23.1
+  build_runner: ^2.4.14
+  riverpod_generator: ^4.0.8
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon.png"
+  min_sdk_android: 21
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/sinosphere.db

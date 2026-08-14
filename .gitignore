@@ -1,0 +1,37 @@
+# Large data files — not committed
+data/db/
+data/raw/
+data/processed/
+
+# Flutter build artifacts
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/android/.gradle/
+app/android/app/google-services.json
+
+# The 83MB SQLite DB asset — too large for GitHub free tier
+# Users must run the pipeline to generate it
+app/assets/sinosphere.db
+
+# Icon source (keep generated mipmap icons)
+app/assets/icon.png
+
+# OS / IDE
+.DS_Store
+**/.DS_Store
+.claude/
+*.iml
+.idea/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+pipeline/__pycache__/
+
+# Sensitive
+*.env
+.env
+secrets.*
