@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/database_provider.dart';
+import '../../core/services/lang_mode_provider.dart';
 import '../../core/database/database.dart';
 import 'collection_detail_screen.dart';
 
@@ -14,7 +15,16 @@ const _hskDecks = [
   (level: 4, count: 982,  color: Color(0xFFF59E0B), desc: 'Upper intermediate'),
   (level: 5, count: 1065, color: Color(0xFFEF4444), desc: 'Advanced'),
   (level: 6, count: 1131, color: Color(0xFFEC4899), desc: 'Mastery'),
-  (level: 7, count: 5619, color: Color(0xFF06B6D4), desc: 'HSK 7-9 · Professional'),
+  (level: 7, count: 5619, color: Color(0xFF06B6D4), desc: 'Professional'),
+];
+
+// Seeded TOPIK decks (proxy levels from HSK mapping)
+// TOPIK bands: A=Beginner(T1), B=Intermediate(T3), C=Advanced(T5+T6)
+// Sino-Korean (compound_words topik_in_source=1, len>=2) + native (korean_words)
+const _topikDecks = [
+  (level: 1, band: 'A', levels: [1],    count: 924,  color: Color(0xFF6366F1), desc: 'Beginner'),
+  (level: 3, band: 'B', levels: [3],    count: 2382, color: Color(0xFF3B82F6), desc: 'Intermediate'),
+  (level: 5, band: 'C', levels: [5, 6], count: 3118, color: Color(0xFF8B5CF6), desc: 'Advanced'),
 ];
 
 // Seeded topic packs
@@ -37,9 +47,27 @@ final userCollectionsProvider = FutureProvider<List<UserCollection>>(
   (ref) => ref.read(databaseProvider).collectionDao.getAllCollections(),
 );
 
-// Public so dict_card can invalidate it after bookmarking
+// Public so dict_card and compound_list can invalidate it after bookmarking
 final bookmarkedSymbolsProvider = FutureProvider<List<String>>(
   (ref) => ref.read(databaseProvider).collectionDao.getBookmarkedSymbols(),
+);
+
+// Full bookmark items (characters + compounds) — used by the bookmarks grid
+final bookmarkedItemsProvider = FutureProvider<List<CollectionItem>>(
+  (ref) => ref.read(databaseProvider).collectionDao.getBookmarkedItems(),
+);
+
+final topicWordCountProvider =
+    FutureProvider.family<int, ({String topicId, bool krOnly})>(
+  (ref, args) => ref
+      .read(databaseProvider)
+      .collectionDao
+      .getTopicWordCount(args.topicId, krOnly: args.krOnly),
+);
+
+final hskWordCountProvider = FutureProvider.family<int, int>(
+  (ref, level) =>
+      ref.read(databaseProvider).collectionDao.getHskWordCount(level),
 );
 
 class CollectionsScreen extends ConsumerWidget {
@@ -47,7 +75,10 @@ class CollectionsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
+    final c        = context.colors;
+    final langMode = ref.watch(langModeProvider);
+    final isKorean = langMode == LangMode.korean;
+
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(
@@ -64,38 +95,67 @@ class CollectionsScreen extends ConsumerWidget {
               ),
             ),
 
-            // HSK Level grid
-            SliverToBoxAdapter(child: _sectionHeader(c, 'HSK Levels',
-                subtitle: '10,957 words total')),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverGrid(
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) => _HskCard(
-                    deck: _hskDecks[i],
-                    onTap: () => Navigator.push(ctx, MaterialPageRoute(
-                        builder: (_) => HskDetailScreen(hskLevel: _hskDecks[i].level))),
+            if (isKorean) ...[
+              // TOPIK Level grid
+              SliverToBoxAdapter(child: _sectionHeader(c, 'TOPIK Levels',
+                  subtitle: '${_topikDecks.fold(0, (s, d) => s + d.count).toString()} words total')),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => _TopikCard(
+                      deck: _topikDecks[i],
+                      onTap: () => Navigator.push(ctx, MaterialPageRoute(
+                          builder: (_) => TopikDetailScreen(
+                              topikLevels: _topikDecks[i].levels,
+                              band: _topikDecks[i].band,
+                              desc: _topikDecks[i].desc))),
+                    ),
+                    childCount: _topikDecks.length,
                   ),
-                  childCount: _hskDecks.length,
-                ),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1.1,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 1.1,
+                  ),
                 ),
               ),
-            ),
+            ] else ...[
+              // HSK Level grid
+              SliverToBoxAdapter(child: _sectionHeader(c, 'HSK Levels',
+                  subtitle: '10,957 words total')),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => _HskCard(
+                      deck: _hskDecks[i],
+                      onTap: () => Navigator.push(ctx, MaterialPageRoute(
+                          builder: (_) => HskDetailScreen(hskLevel: _hskDecks[i].level))),
+                    ),
+                    childCount: _hskDecks.length,
+                  ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 1.1,
+                  ),
+                ),
+              ),
+            ],
 
             // Topic packs
             SliverToBoxAdapter(child: _sectionHeader(c, 'Topic Collections',
-                subtitle: 'Curated by Hán-Việt resonance')),
+                subtitle: isKorean ? '% Sino-Korean' : 'Curated by Hán-Việt resonance')),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => _TopicRow(
                     pack: _topicPacks[i],
+                    isKorean: isKorean,
                     onTap: () => Navigator.push(ctx, MaterialPageRoute(
                         builder: (_) => TopicDetailScreen(
                             topicId: _topicPacks[i].topicId,
@@ -111,20 +171,16 @@ class CollectionsScreen extends ConsumerWidget {
               child: _sectionHeader(c, 'My Collections', trailing:
                 TextButton.icon(
                   onPressed: () => _createCollection(context, ref),
-                  icon: const Icon(Icons.add, size: 16,
-                      color: AppTheme.hanviet),
+                  icon: const Icon(Icons.add, size: 16, color: AppTheme.hanviet),
                   label: const Text('New',
-                      style: TextStyle(
-                          color: AppTheme.hanviet,
-                          fontWeight: FontWeight.w700)),
+                      style: TextStyle(color: AppTheme.hanviet, fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
             _UserCollectionsList(),
 
             // Bookmarks
-            SliverToBoxAdapter(child: _sectionHeader(c,
-                'Recently Bookmarked')),
+            SliverToBoxAdapter(child: _sectionHeader(c, 'Recently Bookmarked')),
             _BookmarksGrid(),
 
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -193,10 +249,48 @@ class CollectionsScreen extends ConsumerWidget {
   }
 }
 
-class _HskCard extends StatelessWidget {
+class _HskCard extends ConsumerWidget {
   final ({int level, int count, Color color, String desc}) deck;
   final VoidCallback? onTap;
   const _HskCard({required this.deck, this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final countAsync = ref.watch(hskWordCountProvider(deck.level));
+    final count = countAsync.maybeWhen(data: (n) => n, orElse: () => deck.count);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+      decoration: BoxDecoration(
+        color: deck.color.withAlpha(26),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: deck.color.withAlpha(64), width: 0.5),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('HSK ${deck.level == 7 ? '7-9' : deck.level}',
+              style: TextStyle(
+                  color: deck.color, fontSize: 11,
+                  fontWeight: FontWeight.w900, letterSpacing: 1)),
+          Text('$count',
+              style: TextStyle(
+                  color: c.text, fontSize: 22, fontWeight: FontWeight.w900)),
+          Text(deck.desc,
+              style: TextStyle(color: c.textMuted, fontSize: 9),
+              textAlign: TextAlign.center),
+        ],
+      ),
+    ),
+    );
+  }
+}
+
+class _TopikCard extends StatelessWidget {
+  final ({int level, List<int> levels, String band, int count, Color color, String desc}) deck;
+  final VoidCallback? onTap;
+  const _TopikCard({required this.deck, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -212,31 +306,33 @@ class _HskCard extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('HSK ${deck.level}',
-              style: TextStyle(
-                  color: deck.color, fontSize: 11,
+          Text('TOPIK ${deck.band}',
+              style: TextStyle(color: deck.color, fontSize: 11,
                   fontWeight: FontWeight.w900, letterSpacing: 1)),
           Text('${deck.count}',
-              style: TextStyle(
-                  color: c.text, fontSize: 22, fontWeight: FontWeight.w900)),
+              style: TextStyle(color: c.text, fontSize: 22,
+                  fontWeight: FontWeight.w900)),
           Text(deck.desc,
               style: TextStyle(color: c.textMuted, fontSize: 9),
               textAlign: TextAlign.center),
         ],
       ),
-    ),
+    ),  // GestureDetector
     );
   }
-}
-
-class _TopicRow extends StatelessWidget {
+}class _TopicRow extends ConsumerWidget {
   final ({String name, String icon, String topicId, String resonance}) pack;
   final VoidCallback? onTap;
-  const _TopicRow({required this.pack, this.onTap});
+  final bool isKorean;
+  const _TopicRow({required this.pack, this.onTap, this.isKorean = false});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final countAsync = ref.watch(
+        topicWordCountProvider((topicId: pack.topicId, krOnly: isKorean)));
+    final countText = countAsync.maybeWhen(
+        data: (n) => '$n words', orElse: () => '…');
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -252,23 +348,35 @@ class _TopicRow extends StatelessWidget {
           Text(pack.icon, style: const TextStyle(fontSize: 24)),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(pack.name,
-                style: TextStyle(
-                    color: c.text, fontSize: 14,
-                    fontWeight: FontWeight.w600)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(pack.name,
+                    style: TextStyle(
+                        color: c.text, fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+                Text(countText,
+                    style: TextStyle(color: c.textMuted, fontSize: 11)),
+              ],
+            ),
           ),
           Row(
             children: [
               Container(
                   width: 5, height: 5,
                   decoration: BoxDecoration(
-                      color: pack.resonance == 'high'
-                          ? AppTheme.hanviet
-                          : const Color(0xFF38BDF8),
+                      color: isKorean
+                          ? const Color(0xFF818CF8)
+                          : (pack.resonance == 'high'
+                              ? AppTheme.hanviet
+                              : const Color(0xFF38BDF8)),
                       shape: BoxShape.circle)),
               const SizedBox(width: 3),
-              Text(pack.resonance == 'high' ? 'Strong HV' : 'Mixed HV',
-                  style: TextStyle(color: c.textMuted, fontSize: 9)),
+              Text(
+                isKorean
+                    ? (pack.resonance == 'high' ? '~85% SK' : '~50% SK')
+                    : (pack.resonance == 'high' ? 'Strong HV' : 'Mixed HV'),
+                style: TextStyle(color: c.textMuted, fontSize: 9)),
               const SizedBox(width: 6),
               Icon(Icons.chevron_right, color: c.textMuted, size: 16),
             ],
@@ -362,11 +470,11 @@ class _UserCollectionsList extends ConsumerWidget {
 class _BookmarksGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final symbols = ref.watch(bookmarkedSymbolsProvider);
+    final items = ref.watch(bookmarkedItemsProvider);
     final c = context.colors;
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: symbols.when(
+      sliver: items.when(
         loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
         error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
         data: (list) {
@@ -383,19 +491,49 @@ class _BookmarksGrid extends ConsumerWidget {
           }
           return SliverGrid(
             delegate: SliverChildBuilderDelegate(
-              (ctx, i) => Container(
-                decoration: BoxDecoration(
-                  color: c.cardBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: c.border, width: 0.5),
-                ),
-                child: Center(
-                  child: Text(list[i],
-                      style: TextStyle(
-                          color: c.text, fontSize: 24,
-                          fontWeight: FontWeight.w700)),
-                ),
-              ),
+              (ctx, i) {
+                final item = list[i];
+                final isKorean = ref.read(langModeProvider) == LangMode.korean;
+                final shown = (isKorean && item.hangul != null) ? item.hangul! : item.display;
+                return GestureDetector(
+                  onTap: () => showCollectionWordSheet(ctx, ref,
+                    display:    shown,
+                    hanViet:    item.hanViet,
+                    pinyin:     item.pinyin,
+                    englishDef: item.englishDef,
+                    wordId:     item.isChar ? null : item.id,
+                    hangul:     item.hangul,
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: c.cardBg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: c.border, width: 0.5),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(shown,
+                            style: TextStyle(
+                                color: c.text,
+                                fontSize: shown.length == 1 ? 22 : 14,
+                                fontWeight: FontWeight.w700),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text(item.hanViet,
+                            style: const TextStyle(
+                                color: AppTheme.hanviet, fontSize: 8,
+                                fontWeight: FontWeight.w700),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                );
+              },
               childCount: list.length,
             ),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

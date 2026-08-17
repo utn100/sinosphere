@@ -4,6 +4,8 @@ import '../../../core/database/database.dart';
 import '../../../core/services/database_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../features/dict_card/dict_card_provider.dart';
+import '../../../features/dict_card/widgets/word_enrichment.dart';
+import '../../../features/dict_card/widgets/bookmark_button.dart';
 import '../../../features/shell/app_shell.dart';
 
 final _relatedWordsProvider =
@@ -50,6 +52,17 @@ class WordRelationSheet extends ConsumerWidget {
             style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 13)),
         const SizedBox(height: 4),
         Text(word.englishDef, style: TextStyle(color: c.textSub, fontSize: 13)),
+
+        BookmarkButton(wordId: word.id),
+        WordEnrichmentSection(
+          wordId:          word.id,
+          simplified:      word.simplified,
+          pinyin:          word.pinyin,
+          englishDef:      word.englishDef,
+          initialSynonyms: word.synonyms,
+          initialAntonyms: word.antonyms,
+          initialExample:  word.exampleSentence,
+        ),
         const SizedBox(height: 20),
 
         Text('RELATED WORDS',

@@ -32,12 +32,65 @@ part 'database.g.dart';
   UserCollectionWords,
   ReadingHistory,
   AiCache,
+  KoreanWords,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 8;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(compoundWords, compoundWords.topicTag);
+      }
+      if (from < 3) {
+        await m.addColumn(compoundWords, compoundWords.synonyms);
+        await m.addColumn(compoundWords, compoundWords.antonyms);
+        await m.addColumn(compoundWords, compoundWords.exampleSentence);
+      }
+      if (from < 4) {
+        await m.addColumn(compoundWords, compoundWords.romaja);
+        await m.addColumn(compoundWords, compoundWords.topikLevel);
+        await m.addColumn(compoundWords, compoundWords.isSinoKorean);
+        await m.addColumn(compoundWords, compoundWords.batchim);
+      }
+      if (from < 5) {
+        await m.addColumn(compoundWords, compoundWords.krVerified);
+        await m.addColumn(compoundWords, compoundWords.pos);
+        await m.createTable(koreanWords);
+      }
+      if (from < 6) {
+        try {
+          await m.addColumn(koreanWords, koreanWords.synonyms);
+          await m.addColumn(koreanWords, koreanWords.antonyms);
+          await m.addColumn(koreanWords, koreanWords.exampleSentence);
+        } catch (_) {}
+      }
+      if (from < 7) {
+        try {
+          await m.addColumn(compoundWords, compoundWords.krSynonyms);
+          await m.addColumn(compoundWords, compoundWords.krAntonyms);
+          await m.addColumn(compoundWords, compoundWords.krExample);
+        } catch (_) {}
+      }
+      if (from < 8) {
+        try {
+          await m.addColumn(compoundWords, compoundWords.topikInSource);
+          // Populate from existing topik_level data after column is added
+          await m.database.customStatement('''
+            UPDATE compound_words
+            SET topik_in_source = 1
+            WHERE topik_level IS NOT NULL
+              AND kr_verified = 1
+              AND LENGTH(hangul) >= 2
+          ''');
+        } catch (_) {}
+      }
+    },
+  );
 
   late final CharacterDao  characterDao  = CharacterDao(this);
   late final CompoundDao   compoundDao   = CompoundDao(this);

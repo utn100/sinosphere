@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/database/database.dart';
 import '../../../core/services/database_provider.dart';
-import '../../collections/collections_screen.dart' show bookmarkedSymbolsProvider;
+import '../../collections/collections_screen.dart' show bookmarkedSymbolsProvider, bookmarkedItemsProvider;
 
 // Per-word bookmark state
 final _wordBookmarkProvider = FutureProvider.family<bool, String>((ref, wordId) async {
@@ -118,6 +118,7 @@ class _CompoundRow extends ConsumerWidget {
               await db.collectionDao.toggleWordBookmark(word.id);
               ref.invalidate(_wordBookmarkProvider(word.id));
               ref.invalidate(bookmarkedSymbolsProvider);
+              ref.invalidate(bookmarkedItemsProvider);
             },
             child: Icon(
               bookmarked ? Icons.bookmark : Icons.bookmark_border,

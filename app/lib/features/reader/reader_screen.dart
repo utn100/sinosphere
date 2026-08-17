@@ -3,12 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/ai_service.dart';
-import '../graph/graph_provider.dart';
+import '../../core/services/ocr_service.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart'
+    show TextRecognitionScript;
+import '../../core/services/lang_mode_provider.dart';
+import '../graph/graph_provider.dart'
+    show graphProvider, koreanGraphSearchProvider;
 import '../settings/settings_screen.dart';
 import '../shell/app_shell.dart';
 import 'models/token.dart';
 import 'reader_provider.dart';
 import 'seeded_texts.dart';
+import 'seeded_texts_kr.dart';
 import 'widgets/annotated_text.dart';
 import 'widgets/token_detail_sheet.dart';
 import 'widgets/harvest_panel.dart';
@@ -25,6 +31,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   final _textCtrl   = TextEditingController();
   final _titleCtrl  = TextEditingController();
   final _focusNode  = FocusNode();
+  final _ocr        = OcrService();
   bool _showHistory = false;
   bool _showTranslation = false;
 
@@ -51,6 +58,56 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     FocusScope.of(context).unfocus();
   }
 
+  Future<void> _pickImage() async {
+    final fromCamera = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('Choose from gallery'),
+            onTap: () => Navigator.pop(ctx, false),
+          ),
+          ListTile(
+            leading: const Icon(Icons.camera_alt_outlined),
+            title: const Text('Take a photo'),
+            onTap: () => Navigator.pop(ctx, true),
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (fromCamera == null || !mounted) return;
+    final isKorean = ref.read(langModeProvider) == LangMode.korean;
+    ref.read(readerProvider.notifier).setExtractingOcr(true);
+    try {
+      final text = await _ocr.pickAndExtract(
+        fromCamera: fromCamera,
+        script: isKorean
+            ? TextRecognitionScript.korean
+            : TextRecognitionScript.chinese,
+      );
+      if (!mounted) return;
+      if (text != null) {
+        setState(() => _textCtrl.text = text);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isKorean
+              ? 'No Korean text found in image'
+              : 'No Chinese text found in image')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not read image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) ref.read(readerProvider.notifier).setExtractingOcr(false);
+    }
+  }
+
   void _showTokenSheet(Token token) {
     showModalBottomSheet(
       context: context,
@@ -64,21 +121,34 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
-  // Fix 5: long-press navigates to Graph tab
+  // Long-press navigates to Graph tab
   void _longPressToken(Token token) {
-    final notifier = ref.read(graphProvider.notifier);
-    if (token.isCompound) {
-      notifier.setFocalWord(token.text, token.text.split(''));
+    final langMode = ref.read(langModeProvider);
+    if (langMode == LangMode.korean) {
+      // KR mode: use hanja (simplified) for the graph pivot lookup
+      final simp = token.simplified;
+      if (simp != null && simp.isNotEmpty) {
+        ref.read(koreanGraphSearchProvider.notifier).set(
+            (simplified: simp, hangul: token.text));
+      }
     } else {
-      notifier.setFocal(token.text);
+      // ZH mode: existing behavior
+      final notifier = ref.read(graphProvider.notifier);
+      if (token.isCompound) {
+        notifier.setFocalWord(token.text, token.text.split(''));
+      } else {
+        notifier.setFocal(token.text);
+      }
     }
     ref.read(tabIndexProvider.notifier).set(1);
   }
 
   @override
   Widget build(BuildContext context) {
-    final c     = context.colors;
-    final state = ref.watch(readerProvider);
+    final c        = context.colors;
+    final state    = ref.watch(readerProvider);
+    final langMode = ref.watch(langModeProvider);
+    final isKorean = langMode == LangMode.korean;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -93,48 +163,48 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   Text('Smart Reader',
                       style: TextStyle(color: c.text, fontSize: 22,
                           fontWeight: FontWeight.w800)),
-                  Text('Interlinear Hán-Việt annotation',
-                      style: TextStyle(color: c.textMuted, fontSize: 11)),
+                  Text(
+                    isKorean
+                        ? 'Tap words to extract vocabulary'
+                        : 'Interlinear Hán-Việt annotation',
+                    style: TextStyle(color: c.textMuted, fontSize: 11)),
                 ])),
-                // Fix 4: correct independent toggle logic
-                _ModeChip(label: 'PY',
-                    active: state.mode == AnnotationMode.pinyin || state.mode == AnnotationMode.both,
-                    color: const Color(0xFF38BDF8),
+                if (isKorean) ...[
+                  // Highlight toggle: color-codes Sino-Korean words
+                  _ModeChip(
+                    label: state.mode == AnnotationMode.romaja ? 'Highlight On' : 'Highlight',
+                    active: state.mode == AnnotationMode.romaja,
+                    color: const Color(0xFF818CF8),
                     onTap: () {
-                      final hasPY = state.mode == AnnotationMode.pinyin || state.mode == AnnotationMode.both;
-                      final hasHV = state.mode == AnnotationMode.hanviet || state.mode == AnnotationMode.both;
-                      if (hasPY) {
+                      final next = state.mode == AnnotationMode.romaja
+                          ? AnnotationMode.none
+                          : AnnotationMode.romaja;
+                      ref.read(readerProvider.notifier).setMode(next);
+                    },
+                  ),
+                ] else ...[
+                  _ModeChip(label: 'PY',
+                      active: state.mode == AnnotationMode.pinyin || state.mode == AnnotationMode.both,
+                      color: const Color(0xFF38BDF8),
+                      onTap: () {
+                        final hasPY = state.mode == AnnotationMode.pinyin || state.mode == AnnotationMode.both;
+                        final hasHV = state.mode == AnnotationMode.hanviet || state.mode == AnnotationMode.both;
                         ref.read(readerProvider.notifier).setMode(
-                            hasHV ? AnnotationMode.hanviet : AnnotationMode.none);
-                      } else {
+                            hasPY ? (hasHV ? AnnotationMode.hanviet : AnnotationMode.none)
+                                  : (hasHV ? AnnotationMode.both : AnnotationMode.pinyin));
+                      }),
+                  const SizedBox(width: 6),
+                  _ModeChip(label: 'HV',
+                      active: state.mode == AnnotationMode.hanviet || state.mode == AnnotationMode.both,
+                      onTap: () {
+                        final hasPY = state.mode == AnnotationMode.pinyin || state.mode == AnnotationMode.both;
+                        final hasHV = state.mode == AnnotationMode.hanviet || state.mode == AnnotationMode.both;
                         ref.read(readerProvider.notifier).setMode(
-                            hasHV ? AnnotationMode.both : AnnotationMode.pinyin);
-                      }
-                    }),
-                const SizedBox(width: 6),
-                _ModeChip(label: 'HV',
-                    active: state.mode == AnnotationMode.hanviet || state.mode == AnnotationMode.both,
-                    onTap: () {
-                      final hasPY = state.mode == AnnotationMode.pinyin || state.mode == AnnotationMode.both;
-                      final hasHV = state.mode == AnnotationMode.hanviet || state.mode == AnnotationMode.both;
-                      if (hasHV) {
-                        ref.read(readerProvider.notifier).setMode(
-                            hasPY ? AnnotationMode.pinyin : AnnotationMode.none);
-                      } else {
-                        ref.read(readerProvider.notifier).setMode(
-                            hasPY ? AnnotationMode.both : AnnotationMode.hanviet);
-                      }
-                    }),
+                            hasHV ? (hasPY ? AnnotationMode.pinyin : AnnotationMode.none)
+                                  : (hasPY ? AnnotationMode.both : AnnotationMode.hanviet));
+                      }),
+                ],
                 const SizedBox(width: 8),
-                // Fix 1: Settings button
-                IconButton(
-                  icon: Icon(Icons.tune, color: c.textMuted, size: 20),
-                  onPressed: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const _SettingsRoute())),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
-                // History button
                 IconButton(
                   icon: Icon(Icons.history, color: c.textMuted, size: 20),
                   onPressed: () => setState(() => _showHistory = !_showHistory),
@@ -148,7 +218,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 children: [
-                  // Fix 6: SAMPLES label + Fix 2: Custom on its own line
                   Text('SAMPLES',
                       style: TextStyle(color: c.textMuted, fontSize: 9,
                           fontWeight: FontWeight.w800, letterSpacing: 1)),
@@ -157,21 +226,22 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     height: 36,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      itemCount: kSeededTexts.length,
+                      itemCount: isKorean ? kSeededTextsKr.length : kSeededTexts.length,
                       separatorBuilder: (_, _) => const SizedBox(width: 8),
                       itemBuilder: (_, i) {
-                        final s = kSeededTexts[i];
+                        final s = isKorean ? kSeededTextsKr[i] : kSeededTexts[i];
+                        final chipColor = isKorean ? const Color(0xFF818CF8) : AppTheme.hanviet;
                         return GestureDetector(
                           onTap: () => _loadSeeded(s.text, s.title),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: AppTheme.hanviet.withAlpha(26),
+                              color: chipColor.withAlpha(26),
                               borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: AppTheme.hanviet.withAlpha(64), width: 0.5),
+                              border: Border.all(color: chipColor.withAlpha(64), width: 0.5),
                             ),
                             child: Text(s.title,
-                                style: const TextStyle(color: AppTheme.hanviet,
+                                style: TextStyle(color: chipColor,
                                     fontSize: 12, fontWeight: FontWeight.w700)),
                           ),
                         );
@@ -179,27 +249,47 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Fix 2: Custom button on its own full-width line
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppTheme.semantic.withAlpha(128)),
-                        foregroundColor: AppTheme.semantic,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                  // Input action buttons row
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: AppTheme.semantic.withAlpha(128)),
+                          foregroundColor: AppTheme.semantic,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.edit_note, size: 14),
+                        label: const Text('Paste text',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        onPressed: () {
+                          _textCtrl.clear();
+                          _titleCtrl.clear();
+                          _focusNode.requestFocus();
+                        },
                       ),
-                      icon: const Icon(Icons.add, size: 14),
-                      label: const Text('Paste your own text',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                      onPressed: () {
-                        _textCtrl.clear();
-                        _titleCtrl.clear();
-                        _focusNode.requestFocus();
-                      },
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: AppTheme.phonetic.withAlpha(128)),
+                          foregroundColor: AppTheme.phonetic,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: state.isExtractingOcr
+                            ? const SizedBox(width: 14, height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.image_search, size: 14),
+                        label: Text(state.isExtractingOcr ? 'Extracting…' : 'From image',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        onPressed: state.isExtractingOcr ? null : _pickImage,
+                      ),
+                    ),
+                  ]),
                   const SizedBox(height: 12),
 
                   // ── Input area ────────────────────────────────────────
@@ -209,7 +299,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     maxLines: 4,
                     style: TextStyle(color: c.text, fontSize: 16),
                     decoration: InputDecoration(
-                      hintText: 'Paste Chinese text here…',
+                      hintText: isKorean
+                          ? '한국어 텍스트를 붙여넣으세요…'
+                          : 'Paste Chinese text here…',
                       hintStyle: TextStyle(color: c.textMuted),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -245,7 +337,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                                   strokeWidth: 2, color: Colors.black))
                           : const Icon(Icons.auto_awesome, size: 16),
                       label: Text(state.isAnnotating
-                          ? 'Annotating…' : 'Annotate · Extract Vocabulary',
+                          ? (isKorean ? 'Analyzing…' : 'Annotating…')
+                          : (isKorean ? 'Analyze · Extract Vocabulary' : 'Annotate · Extract Vocabulary'),
                           style: const TextStyle(
                               fontWeight: FontWeight.w800, fontSize: 13)),
                       onPressed: state.isAnnotating ? null : _annotate,
@@ -361,11 +454,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 }
 
-class _SettingsRoute extends StatelessWidget {
-  const _SettingsRoute();
-  @override
-  Widget build(BuildContext context) => const SettingsScreen();
-}
 
 class _TranslationCard extends ConsumerStatefulWidget {
   final List<Token> tokens;
@@ -455,7 +543,7 @@ class _TranslationCardState extends ConsumerState<_TranslationCard> {
               ] else if (!aiConfigured)
                 GestureDetector(
                   onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const _SettingsRoute())),
+                      MaterialPageRoute(builder: (_) => const SettingsScreen())),
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(

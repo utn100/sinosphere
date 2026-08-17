@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database.dart';
 import '../../core/services/database_provider.dart';
+import '../../core/services/lang_mode_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../dict_card/dict_card_provider.dart';
+import '../dict_card/widgets/word_enrichment.dart';
+import '../dict_card/widgets/bookmark_button.dart';
 import '../shell/app_shell.dart' show tabIndexProvider;
 import '../search/search_bar.dart';
 import 'graph_provider.dart';
 import 'graph_painter.dart';
+import 'korean_graph_view.dart';
 import 'models/graph_node.dart';
 import 'widgets/graph_legend.dart';
 
@@ -20,16 +24,43 @@ class GraphScreen extends ConsumerStatefulWidget {
 
 class _GraphScreenState extends ConsumerState<GraphScreen> {
   String? _selectedId;
-  // Map compound word node id → CompoundWord for sheet lookup
+  bool    _radicalBarVisible = true;
+  String  _activeRadical = '土';
+  String  _activePinyin  = 'tǔ';
   final Map<String, CompoundWord> _wordCache = {};
+  final _transformCtrl = TransformationController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _centerGraph();
       final symbol = ref.read(activeSymbolProvider);
-      ref.read(graphProvider.notifier).setFocal(symbol);
+      await ref.read(graphProvider.notifier).setFocal(symbol);
+      // Init radical pill with the initial focal character's pinyin
+      final ch = await ref.read(databaseProvider).characterDao.getBySymbol(symbol);
+      if (mounted) {
+        setState(() {
+          _activeRadical = symbol;
+          _activePinyin  = ch?.pinyin ?? '';
+        });
+      }
     });
+  }
+
+  void _centerGraph() {
+    final size = context.size;
+    if (size == null) return;
+    const canvasSize = 800.0;
+    final dx = (size.width  - canvasSize) / 2;
+    final dy = (size.height - canvasSize) / 2;
+    _transformCtrl.value = Matrix4.translationValues(dx, dy, 0);
+  }
+
+  @override
+  void dispose() {
+    _transformCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _onNodeTap(GraphNode node) async {
@@ -123,13 +154,29 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final graph = ref.watch(graphProvider);
+    final c        = context.colors;
+    final graph    = ref.watch(graphProvider);
+    final langMode = ref.watch(langModeProvider);
+    final isKorean = langMode == LangMode.korean;
+
+    // Reset radical pill whenever focal symbol changes (e.g. navigating from dict card or collections)
+    ref.listen(graphProvider, (prev, next) async {
+      if (next.focalSymbol.isNotEmpty && next.focalSymbol != prev?.focalSymbol) {
+        final ch = await ref.read(databaseProvider).characterDao
+            .getBySymbol(next.focalSymbol);
+        if (mounted) setState(() {
+          _activeRadical = next.focalSymbol;
+          _activePinyin  = ch?.pinyin ?? '';
+        });
+      }
+    });
 
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(
-        child: Column(children: [
+        child: isKorean
+            ? const KoreanGraphView()
+            : Column(children: [
           // Search bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -139,30 +186,74 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                   ref.read(activeSymbolProvider.notifier).set(result.simplified);
                   await ref.read(graphProvider.notifier).setFocal(result.simplified);
                 } else {
-                  // Show word-level graph: compound word at center, each char expandable
                   await ref.read(graphProvider.notifier).setFocalWord(
                     result.simplified,
                     result.simplified.split(''),
                   );
                 }
+                _centerGraph();
               },
             ),
           ),
           const SizedBox(height: 8),
 
-          // Legend
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Align(alignment: Alignment.centerLeft, child: GraphLegend()),
+          // Legend row + radical collapse pill
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(children: [
+              const Align(alignment: Alignment.centerLeft, child: GraphLegend()),
+              const Spacer(),
+              // Active-radical pill — tap to show/hide radical picker
+              GestureDetector(
+                onTap: () => setState(() => _radicalBarVisible = !_radicalBarVisible),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.hanviet.withAlpha(26),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.hanviet.withAlpha(80)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(_activeRadical,
+                        style: const TextStyle(color: AppTheme.hanviet,
+                            fontSize: 13, fontWeight: FontWeight.w800)),
+                    if (_activePinyin.isNotEmpty) ...[
+                      const Text(' · ', style: TextStyle(color: AppTheme.hanviet, fontSize: 11)),
+                      Text(_activePinyin,
+                          style: const TextStyle(color: AppTheme.hanviet,
+                              fontSize: 11, fontWeight: FontWeight.w700)),
+                    ],
+                    const SizedBox(width: 4),
+                    Icon(
+                      _radicalBarVisible ? Icons.expand_less : Icons.expand_more,
+                      color: AppTheme.hanviet, size: 16),
+                  ]),
+                ),
+              ),
+            ]),
           ),
           const SizedBox(height: 6),
 
-          // Radical picker bar
-          _RadicalBar(onTap: (radical) async {
-            ref.read(activeSymbolProvider.notifier).set(radical);
-            await ref.read(graphProvider.notifier).setFocal(radical);
-            setState(() => _selectedId = null);
-          }),
+          // Radical picker bar — collapsible
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _radicalBarVisible
+                ? _RadicalBar(onTap: (radical) async {
+                    ref.read(activeSymbolProvider.notifier).set(radical);
+                    await ref.read(graphProvider.notifier).setFocal(radical);
+                    // Look up pinyin for the pill label
+                    final ch = await ref.read(databaseProvider)
+                        .characterDao.getBySymbol(radical);
+                    setState(() {
+                      _selectedId = null;
+                      _activeRadical = radical;
+                      _activePinyin  = ch?.pinyin ?? '';
+                    });
+                    _centerGraph();
+                  })
+                : const SizedBox.shrink(),
+          ),
           const SizedBox(height: 6),
 
           // Canvas
@@ -172,6 +263,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     strokeWidth: 2, color: AppTheme.hanviet))
                 : InteractiveViewer(
                     constrained: false,
+                    transformationController: _transformCtrl,
                     minScale: 0.3,
                     maxScale: 3.0,
                     child: GestureDetector(
@@ -200,8 +292,8 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
               textAlign: TextAlign.center,
             ),
           ),
-        ]),
-      ),
+        ]),  // Column
+      ),    // SafeArea
     );
   }
 }
@@ -339,6 +431,7 @@ class _GraphWordSheet extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.end,
           children: word.simplified.split('').map((ch) => GestureDetector(
             onTap: () => onCharTap(ch),
+            onLongPress: () => copyToClipboard(context, word.simplified),
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -372,6 +465,17 @@ class _GraphWordSheet extends StatelessWidget {
                     fontWeight: FontWeight.w700)),
           ),
         ],
+        const SizedBox(height: 10),
+        BookmarkButton(wordId: word.id),
+        WordEnrichmentSection(
+          wordId:          word.id,
+          simplified:      word.simplified,
+          pinyin:          word.pinyin,
+          englishDef:      word.englishDef,
+          initialSynonyms: word.synonyms,
+          initialAntonyms: word.antonyms,
+          initialExample:  word.exampleSentence,
+        ),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

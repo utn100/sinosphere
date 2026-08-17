@@ -94,6 +94,14 @@ class GraphDao {
       originType: r.read('origin_type'),
       isCognateAnchor: r.read('is_cognate_anchor'),
       aiGenerated: r.read('ai_generated'),
+      isSinoKorean: 0,
+      batchim: 0,
+      krVerified: 0,
+      pos: null,
+      krSynonyms: null,
+      krAntonyms: null,
+      krExample: null,
+      topikInSource: 0,
     )).toList();
   }
 
@@ -144,6 +152,91 @@ class GraphDao {
       originType: r.read('origin_type'),
       isCognateAnchor: r.read('is_cognate_anchor'),
       aiGenerated: r.read('ai_generated'),
+      isSinoKorean: 0,
+      batchim: 0,
+      krVerified: 0,
+      pos: null,
+      krSynonyms: null,
+      krAntonyms: null,
+      krExample: null,
+      topikInSource: 0,
     )).toList();
+  }
+
+  /// Get hanja component characters for a compound word (by simplified Chinese form).
+  /// Returns characters in position order — used to build dynamic pivot chips.
+  Future<List<Character>> getWordComponents(String simplified) async {
+    final rows = await _db.customSelect('''
+      SELECT c.id, c.symbol, c.pinyin, c.hangul, c.han_viet,
+             c.english_def, c.etymology_story, c.decomposition, c.radical,
+             c.hsk_level, c.jp_onyomi, c.stroke_count
+      FROM word_characters wc
+      JOIN characters c ON c.id = wc.character_id
+      JOIN compound_words cw ON cw.id = wc.word_id
+      WHERE cw.simplified = ?
+      ORDER BY wc.position
+      LIMIT 6
+    ''', variables: [Variable(simplified)],
+        readsFrom: {_db.characters, _db.wordCharacters, _db.compoundWords}).get();
+
+    return rows.map((r) => Character(
+      id: r.read('id'), symbol: r.read('symbol'), pinyin: r.read('pinyin'),
+      hangul: r.readNullable('hangul'), hanViet: r.read('han_viet'),
+      englishDef: r.read('english_def'),
+      etymologyStory: r.readNullable('etymology_story'),
+      decomposition: r.readNullable('decomposition'),
+      radical: r.readNullable('radical'),
+      hskLevel: r.readNullable('hsk_level'),
+      jpOnyomi: r.readNullable('jp_onyomi'),
+      strokeCount: r.read('stroke_count'),
+    )).toList();
+  }
+  /// for a given pivot character symbol (e.g. '学').
+  /// Only includes Korean words with topik_level (quality filter — avoids raw transliterations).
+  Future<({List<CompoundWord> kr, List<CompoundWord> zh})> getKoreanPivotWords(
+      String pivotSymbol, {int limit = 12}) async {
+    // Single query ordered by KR priority (frequency rank).
+    // Both sides show the same words — KR node displays hangul/romaja,
+    // ZH node displays simplified/pinyin — guaranteeing aligned cognate pairs.
+    final rows = await _db.customSelect('''
+      SELECT DISTINCT cw.id, cw.simplified, cw.traditional, cw.pinyin, cw.hangul,
+             cw.han_viet, cw.han_viet_resonance, cw.vietnamese_note, cw.english_def,
+             cw.hsk_level, cw.frequency_rank, cw.origin_type, cw.is_cognate_anchor,
+             cw.ai_generated, cw.romaja, cw.topik_level, cw.is_sino_korean, cw.batchim,
+             cw.kr_verified, cw.pos
+      FROM word_characters wc
+      JOIN characters ch ON ch.id = wc.character_id
+      JOIN compound_words cw ON cw.id = wc.word_id
+      WHERE ch.symbol = ?
+        AND cw.hangul IS NOT NULL
+        AND cw.kr_verified = 1
+      ORDER BY
+        CASE WHEN cw.frequency_rank IS NOT NULL THEN cw.frequency_rank ELSE 999999 END
+      LIMIT ?
+    ''', variables: [Variable(pivotSymbol), Variable(limit)],
+        readsFrom: {_db.compoundWords, _db.wordCharacters, _db.characters}).get();
+
+    CompoundWord rowToWord(QueryRow r) => CompoundWord(
+      id: r.read('id'), simplified: r.read('simplified'),
+      traditional: r.readNullable('traditional'), pinyin: r.read('pinyin'),
+      hangul: r.readNullable('hangul'), hanViet: r.read('han_viet'),
+      hanVietResonance: r.read('han_viet_resonance'),
+      vietnameseNote: r.readNullable('vietnamese_note'),
+      englishDef: r.read('english_def'), hskLevel: r.readNullable('hsk_level'),
+      frequencyRank: r.readNullable('frequency_rank'),
+      originType: r.read('origin_type'),
+      isCognateAnchor: r.read('is_cognate_anchor'),
+      aiGenerated: r.read('ai_generated'),
+      isSinoKorean: r.readNullable('is_sino_korean') ?? 0,
+      batchim: r.readNullable('batchim') ?? 0,
+      krVerified: r.readNullable('kr_verified') ?? 0,
+      pos: r.readNullable('pos'),
+      krSynonyms: null,
+      krAntonyms: null,
+      krExample: null,
+      topikInSource: 0,    );
+
+    final words = rows.map(rowToWord).toList();
+    return (kr: words, zh: words);
   }
 }

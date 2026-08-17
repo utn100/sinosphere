@@ -62,6 +62,24 @@ class LlmSettings {
   );
 }
 
+class WordExample {
+  final String zh;
+  final String py;
+  final String en;
+  const WordExample({required this.zh, required this.py, required this.en});
+}
+
+class WordDetails {
+  final List<String> synonyms;
+  final List<String> antonyms;
+  final List<WordExample> examples;
+  const WordDetails({
+    required this.synonyms,
+    required this.antonyms,
+    required this.examples,
+  });
+}
+
 const _systemPrompt = '''Bạn là chuyên gia ngôn ngữ học Hán-Việt và Chiết tự học.
 Nhiệm vụ của bạn là viết một câu chuyện ký ức ngắn (2-3 câu) bằng tiếng Việt
 giải thích logic kết hợp các thành phần của một chữ Hán.
@@ -154,7 +172,48 @@ Viết câu chuyện Chiết tự ngắn (2-3 câu tiếng Việt):''';
     }
   }
 
-  Future<String?> _dispatch(LlmSettings settings, String prompt) {
+  Future<WordDetails?> generateWordDetails(
+      String simplified, String pinyin, String englishDef,
+      LlmSettings settings) async {
+    if (!settings.isConfigured) return null;
+    final prompt =
+        'Chinese word: $simplified ($pinyin) — $englishDef\n\n'
+        'Return ONLY a JSON object with keys:\n'
+        '"synonyms": array of 2-3 simplified Chinese synonyms (characters only, empty if none)\n'
+        '"antonyms": array of 1-2 simplified Chinese antonyms (characters only, empty if none)\n'
+        '"examples": array of 1-3 objects, each with "zh" (8-25 char sentence), '
+        '"py" (full pinyin with tone marks), "en" (natural English translation)\n\n'
+        'Example: {"synonyms":["高兴","愉快"],"antonyms":["悲伤"],"examples":['
+        '{"zh":"她看起来非常快乐。","py":"Tā kàn qǐlái fēicháng kuàilè.","en":"She looks very happy."}]}';
+    try {
+      final raw = await _dispatchRaw(settings, prompt);
+      if (raw == null) return null;
+      final clean = raw.replaceAll(RegExp(r'```[a-z]*\n?'), '').trim();
+      final map = jsonDecode(clean) as Map<String, dynamic>;
+      final examplesList = (map['examples'] as List?)?.map((e) {
+        final m = e as Map<String, dynamic>;
+        return WordExample(
+          zh: m['zh'] as String? ?? '',
+          py: m['py'] as String? ?? '',
+          en: m['en'] as String? ?? '',
+        );
+      }).toList() ?? [];
+      return WordDetails(
+        synonyms: (map['synonyms'] as List?)
+            ?.map((e) => e.toString()).toList() ?? [],
+        antonyms: (map['antonyms'] as List?)
+            ?.map((e) => e.toString()).toList() ?? [],
+        examples: examplesList,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _dispatch(LlmSettings settings, String prompt) =>
+      _dispatchRaw(settings, prompt);
+
+  Future<String?> _dispatchRaw(LlmSettings settings, String prompt) {
     switch (settings.provider) {
       case LlmProvider.claude:
         return _callClaude(settings.apiKey, prompt);

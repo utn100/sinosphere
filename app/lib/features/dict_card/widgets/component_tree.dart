@@ -5,7 +5,14 @@ import '../../../core/database/database.dart';
 class ComponentTree extends StatelessWidget {
   final List<ComponentWithType> components;
   final String decomposition;
-  const ComponentTree({super.key, required this.components, required this.decomposition});
+  final void Function(String symbol)? onComponentTap;
+
+  const ComponentTree({
+    super.key,
+    required this.components,
+    required this.decomposition,
+    this.onComponentTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +49,12 @@ class ComponentTree extends StatelessWidget {
           Text('No component data available',
               style: TextStyle(color: c.textMuted, fontSize: 13))
         else
-          ...components.map((comp) => _ComponentRow(comp: comp)),
+          ...components.map((comp) => _ComponentRow(
+                comp: comp,
+                onTap: onComponentTap != null
+                    ? () => onComponentTap!(comp.component.symbol)
+                    : null,
+              )),
       ]),
     );
   }
@@ -50,7 +62,8 @@ class ComponentTree extends StatelessWidget {
 
 class _ComponentRow extends StatelessWidget {
   final ComponentWithType comp;
-  const _ComponentRow({required this.comp});
+  final VoidCallback? onTap;
+  const _ComponentRow({required this.comp, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -62,46 +75,56 @@ class _ComponentRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: c.surf, borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: c.border, width: 0.3),
-        ),
-        child: Row(children: [
-          Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(
-                color: bg, borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: col.withAlpha(102), width: 1)),
-            child: Center(child: Text(comp.component.symbol,
-                style: TextStyle(color: col, fontSize: 22, fontWeight: FontWeight.w700))),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Text(comp.component.pinyin,
-                  style: TextStyle(color: c.text, fontSize: 13, fontWeight: FontWeight.w700)),
-              const SizedBox(width: 8),
-              if (comp.component.hanViet.isNotEmpty)
-                Text(comp.component.hanViet,
-                    style: const TextStyle(color: AppTheme.hanviet, fontSize: 12,
-                        fontWeight: FontWeight.w800)),
-            ]),
-            Text(
-              comp.component.englishDef,
-              style: TextStyle(color: c.textSub, fontSize: 11),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: c.surf, borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: onTap != null ? col.withAlpha(80) : c.border,
+              width: onTap != null ? 0.8 : 0.3,
             ),
-          ])),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-            child: Text(lbl,
-                style: TextStyle(color: col, fontSize: 9, fontWeight: FontWeight.w800)),
           ),
-        ]),
+          child: Row(children: [
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                  color: bg, borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: col.withAlpha(102), width: 1)),
+              child: Center(child: Text(comp.component.symbol,
+                  style: TextStyle(color: col, fontSize: 22, fontWeight: FontWeight.w700))),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text(comp.component.pinyin,
+                    style: TextStyle(color: c.text, fontSize: 13, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 8),
+                if (comp.component.hanViet.isNotEmpty)
+                  Text(comp.component.hanViet,
+                      style: const TextStyle(color: AppTheme.hanviet, fontSize: 12,
+                          fontWeight: FontWeight.w800)),
+              ]),
+              Text(
+                comp.component.englishDef,
+                style: TextStyle(color: c.textSub, fontSize: 11),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+              child: Text(lbl,
+                  style: TextStyle(color: col, fontSize: 9, fontWeight: FontWeight.w800)),
+            ),
+            if (onTap != null) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.arrow_forward_ios, size: 12, color: c.textMuted),
+            ],
+          ]),
+        ),
       ),
     );
   }

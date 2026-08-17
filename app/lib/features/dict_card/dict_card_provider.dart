@@ -3,6 +3,15 @@ import '../../core/database/database.dart';
 import '../../core/services/database_provider.dart';
 import '../../core/services/ai_service.dart';
 
+// Currently displayed Korean search result (persisted across sheet dismissals)
+class ActiveKrWordNotifier extends Notifier<SearchResult?> {
+  @override
+  SearchResult? build() => null;
+  void set(SearchResult? r) => state = r;
+}
+final activeKrWordProvider =
+    NotifierProvider<ActiveKrWordNotifier, SearchResult?>(ActiveKrWordNotifier.new);
+
 // Currently displayed character symbol
 class ActiveSymbolNotifier extends Notifier<String> {
   @override
@@ -10,6 +19,15 @@ class ActiveSymbolNotifier extends Notifier<String> {
   void set(String s) => state = s;
 }
 final activeSymbolProvider = NotifierProvider<ActiveSymbolNotifier, String>(ActiveSymbolNotifier.new);
+
+// Previous symbol for single-level back navigation (component drill-down)
+class PreviousSymbolNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? s) => state = s;
+  void clear() => state = null;
+}
+final previousSymbolProvider = NotifierProvider<PreviousSymbolNotifier, String?>(PreviousSymbolNotifier.new);
 
 // Full character detail
 final characterDetailProvider = FutureProvider.family<CharacterDetail?, String>((ref, symbol) async {
@@ -98,3 +116,26 @@ class EtymologyController {
 
 final etymologyControllerProvider =
     Provider<EtymologyController>((ref) => EtymologyController(ref));
+
+// Korean related compounds — keyed by (hanja string, excludeId)
+// hanja is the simplified Chinese form of the Korean word (e.g. '學校')
+final koreanRelatedProvider = FutureProvider.family<List<SearchResult>,
+    ({String hanja, String excludeId})>((ref, args) {
+  final db = ref.read(databaseProvider);
+  final chars = args.hanja.split('');
+  return db.compoundDao.getKoreanRelated(chars, excludeId: args.excludeId);
+});
+
+/// Fetches kr_* enrichment fields for a Sino-Korean compound word.
+final krEnrichmentProvider = FutureProvider.family<CompoundWord?, String>(
+  (ref, wordId) {
+    if (wordId.isEmpty) return Future.value(null);
+    return ref.read(databaseProvider).compoundDao.getById(wordId);
+  },
+);
+final koreanWordProvider = FutureProvider.family<KoreanWord?, String>(
+  (ref, wordId) {
+    if (wordId.isEmpty) return Future.value(null);
+    return ref.read(databaseProvider).compoundDao.getKoreanWordById(wordId);
+  },
+);

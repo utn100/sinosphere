@@ -47,30 +47,50 @@ class _CjkTokenWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final showHV = mode == AnnotationMode.hanviet || mode == AnnotationMode.both;
-    final showPY = mode == AnnotationMode.pinyin  || mode == AnnotationMode.both;
+    final c       = context.colors;
+    final showHV  = mode == AnnotationMode.hanviet || mode == AnnotationMode.both;
+    final showPY  = mode == AnnotationMode.pinyin  || mode == AnnotationMode.both;
+
+    // In highlight mode: Sino-Korean = amber tint, native Korean = indigo tint, unknown = plain
+    final isHighlight = mode == AnnotationMode.romaja;
+    Color? highlightColor;
+    if (isHighlight && token.isKnown) {
+      highlightColor = token.isSinoKorean
+          ? AppTheme.hanviet        // amber — Sino-Korean
+          : const Color(0xFF818CF8); // indigo — native Korean
+    }
+    final highlightBg = highlightColor != null ? highlightColor.withAlpha(30) : Colors.transparent;
+    final highlightBorder = highlightColor != null
+        ? Border.all(color: highlightColor.withAlpha(70), width: 0.5)
+        : null;
 
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 1),
+        padding: EdgeInsets.symmetric(horizontal: isHighlight ? 3 : 1, vertical: isHighlight ? 2 : 0),
+        decoration: isHighlight ? BoxDecoration(
+          color: highlightBg,
+          borderRadius: BorderRadius.circular(4),
+          border: highlightBorder,
+        ) : null,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (showHV)
-              Text(
-                token.hanViet.isEmpty ? '?' : token.hanViet,
-                style: TextStyle(
-                  color: token.hanViet.isEmpty ? c.textMuted : AppTheme.hanviet,
-                  fontSize: 8, fontWeight: FontWeight.w800,
-                  letterSpacing: 0.3, height: 1.2,
+            // In highlight mode: no annotation above text — clean reading experience
+            if (!isHighlight) ...[
+              if (showHV)
+                Text(
+                  token.hanViet.isEmpty ? '?' : token.hanViet,
+                  style: TextStyle(
+                    color: token.hanViet.isEmpty ? c.textMuted : AppTheme.hanviet,
+                    fontSize: 8, fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3, height: 1.2,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-            // Fix 4: uniform fontSize 20 for all CJK tokens
+            ],
             Text(
               token.text,
               style: TextStyle(
@@ -80,7 +100,7 @@ class _CjkTokenWidget extends StatelessWidget {
                 height: 1.2,
               ),
             ),
-            if (showPY)
+            if (!isHighlight && showPY)
               Text(
                 token.pinyin.isEmpty ? '' : token.pinyin,
                 style: const TextStyle(

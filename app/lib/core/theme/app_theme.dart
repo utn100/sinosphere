@@ -1,31 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // ── Palette ──────────────────────────────────────────────────────────────
-  static const Color background  = Color(0xFF020817); // slate-950
-  static const Color surface     = Color(0xFF0F172A); // slate-900
-  static const Color card        = Color(0xFF1E293B); // slate-800
-  static const Color cardBorder  = Color(0xFF334155); // slate-700
-  static const Color textPrimary = Color(0xFFF1F5F9); // slate-100
-  static const Color textSecond  = Color(0xFF94A3B8); // slate-400
-  static const Color textMuted   = Color(0xFF475569); // slate-600
-
-  // Accent
-  static const Color hanviet  = Color(0xFFF59E0B); // amber-500  — HV anchor
-  static const Color semantic = Color(0xFF10B981); // emerald-500 — semantic
-  static const Color phonetic = Color(0xFF3B82F6); // blue-500   — phonetic
+  // ── Core accent palette (shared across modes) ─────────────────────────────
+  static const Color hanviet  = Color(0xFFF59E0B); // amber-500 — ZH/HV anchor
+  static const Color coral    = Color(0xFFFF6B6B); // coral — primary brand
+  static const Color semantic = Color(0xFF10B981); // emerald-500 — semantic/memorize
+  static const Color phonetic = Color(0xFF3B82F6); // blue-500 — phonetic
   static const Color iconic   = Color(0xFFA855F7); // purple-500 — iconic
-  static const Color sky      = Color(0xFF38BDF8); // sky-400    — compounds
+  static const Color sky      = Color(0xFF38BDF8); // sky-400 — compounds
   static const Color learned  = Color(0xFF8B5CF6); // violet-500 — user nodes
 
-  // Light palette
-  static const Color lightBackground  = Color(0xFFF8FAFC); // slate-50
+  // ── Dark palette (warmer, less cold than slate) ──────────────────────────
+  static const Color background  = Color(0xFF0D1117); // warmer dark
+  static const Color surface     = Color(0xFF161B22); // GitHub dark
+  static const Color card        = Color(0xFF1C2333); // warmer card
+  static const Color cardBorder  = Color(0xFF30363D); // warmer border
+  static const Color textPrimary = Color(0xFFF0F6FF); // warm white
+  static const Color textSecond  = Color(0xFF8B949E); // muted
+  static const Color textMuted   = Color(0xFF484F58); // very muted
+
+  // ── Light palette (periwinkle-white, bubbly) ──────────────────────────────
+  static const Color lightBackground  = Color(0xFFF0F4FF); // soft periwinkle-white
   static const Color lightSurface     = Color(0xFFFFFFFF);
-  static const Color lightCard        = Color(0xFFF1F5F9); // slate-100
-  static const Color lightCardBorder  = Color(0xFFE2E8F0); // slate-200
-  static const Color lightTextPrimary = Color(0xFF0F172A); // slate-900
-  static const Color lightTextSecond  = Color(0xFF475569); // slate-600
-  static const Color lightTextMuted   = Color(0xFF94A3B8); // slate-400
+  static const Color lightCard        = Color(0xFFFFFFFF); // pure white cards
+  static const Color lightCardBorder  = Color(0xFFE8EDF5); // soft blue-grey
+  static const Color lightTextPrimary = Color(0xFF1A1F36); // warm dark
+  static const Color lightTextSecond  = Color(0xFF4A5568); // medium
+  static const Color lightTextMuted   = Color(0xFF9BA3AF); // muted
 
   // ── Component type colours ────────────────────────────────────────────────
   static Color componentColor(String type) {
@@ -55,7 +57,6 @@ class AppTheme {
     }
   }
 
-  // ── Resonance colours ─────────────────────────────────────────────────────
   static Color resonanceDot(String resonance) {
     switch (resonance) {
       case 'high':   return hanviet;
@@ -71,22 +72,38 @@ class AppTheme {
     brightness: Brightness.dark,
     scaffoldBackgroundColor: background,
     colorScheme: const ColorScheme.dark(
-      primary: hanviet,
+      primary: coral,
       secondary: semantic,
       surface: surface,
       onSurface: textPrimary,
     ),
-    appBarTheme: const AppBarTheme(
+    textTheme: GoogleFonts.nunitoTextTheme(
+      const TextTheme(
+        bodyLarge:   TextStyle(color: textPrimary),
+        bodyMedium:  TextStyle(color: textPrimary),
+        bodySmall:   TextStyle(color: textSecond),
+        labelLarge:  TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
+        titleLarge:  TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
+        headlineMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
+      ),
+    ),
+    appBarTheme: AppBarTheme(
       backgroundColor: surface,
       foregroundColor: textPrimary,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
+      titleTextStyle: GoogleFonts.nunito(
+        color: coral,
+        fontSize: 17,
+        fontWeight: FontWeight.w800,
+      ),
     ),
     cardTheme: CardThemeData(
       color: card,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         side: const BorderSide(color: cardBorder, width: 0.5),
       ),
     ),
@@ -94,45 +111,42 @@ class AppTheme {
       filled: true,
       fillColor: card,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: cardBorder),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: cardBorder),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: hanviet, width: 1.5),
       ),
       hintStyle: const TextStyle(color: textMuted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
-    textTheme: const TextTheme(
-      bodyLarge:  TextStyle(color: textPrimary),
-      bodyMedium: TextStyle(color: textPrimary),
-      bodySmall:  TextStyle(color: textSecond),
-    ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: surface,
-      indicatorColor: hanviet.withAlpha(51),
+      height: 68,
+      indicatorColor: coral.withAlpha(40),
+      indicatorShape: const StadiumBorder(),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const IconThemeData(color: hanviet);
+          return const IconThemeData(color: coral);
         }
         return const IconThemeData(color: textMuted);
       }),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const TextStyle(color: hanviet, fontSize: 11, fontWeight: FontWeight.w700);
+          return GoogleFonts.nunito(color: coral, fontSize: 11, fontWeight: FontWeight.w700);
         }
-        return const TextStyle(color: textMuted, fontSize: 11);
+        return GoogleFonts.nunito(color: textMuted, fontSize: 11);
       }),
     ),
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: card,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
     ),
     dividerTheme: const DividerThemeData(color: cardBorder, thickness: 0.5),
@@ -145,69 +159,91 @@ class AppTheme {
     brightness: Brightness.light,
     scaffoldBackgroundColor: lightBackground,
     colorScheme: const ColorScheme.light(
-      primary: hanviet,
+      primary: coral,
       secondary: semantic,
       surface: lightSurface,
       onSurface: lightTextPrimary,
     ),
-    appBarTheme: const AppBarTheme(
+    textTheme: GoogleFonts.nunitoTextTheme(
+      const TextTheme(
+        bodyLarge:   TextStyle(color: lightTextPrimary),
+        bodyMedium:  TextStyle(color: lightTextPrimary),
+        bodySmall:   TextStyle(color: lightTextSecond),
+        labelLarge:  TextStyle(color: lightTextPrimary, fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(color: lightTextPrimary, fontWeight: FontWeight.w700),
+        titleLarge:  TextStyle(color: lightTextPrimary, fontWeight: FontWeight.w800),
+        headlineMedium: TextStyle(color: lightTextPrimary, fontWeight: FontWeight.w800),
+      ),
+    ),
+    appBarTheme: AppBarTheme(
       backgroundColor: lightSurface,
       foregroundColor: lightTextPrimary,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
+      titleTextStyle: GoogleFonts.nunito(
+        color: coral,
+        fontSize: 17,
+        fontWeight: FontWeight.w800,
+      ),
     ),
     cardTheme: CardThemeData(
       color: lightCard,
       elevation: 0,
+      shadowColor: const Color(0xFF1A1F36).withAlpha(20),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: lightCardBorder, width: 0.5),
+        borderRadius: BorderRadius.circular(20),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: lightCard,
+      fillColor: lightSurface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: lightCardBorder),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: lightCardBorder),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: hanviet, width: 1.5),
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: coral, width: 1.5),
       ),
       hintStyle: const TextStyle(color: lightTextMuted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
-    textTheme: const TextTheme(
-      bodyLarge:  TextStyle(color: lightTextPrimary),
-      bodyMedium: TextStyle(color: lightTextPrimary),
-      bodySmall:  TextStyle(color: lightTextSecond),
-    ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: lightSurface,
-      indicatorColor: hanviet.withAlpha(38),
+      height: 68,
+      indicatorColor: coral.withAlpha(35),
+      indicatorShape: const StadiumBorder(),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const IconThemeData(color: hanviet);
+          return const IconThemeData(color: coral);
         }
-        return const IconThemeData(color: lightTextMuted);
+        return IconThemeData(color: lightTextMuted.withAlpha(200));
       }),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const TextStyle(color: hanviet, fontSize: 11, fontWeight: FontWeight.w700);
+          return GoogleFonts.nunito(color: coral, fontSize: 11, fontWeight: FontWeight.w700);
         }
-        return const TextStyle(color: lightTextMuted, fontSize: 11);
+        return GoogleFonts.nunito(color: lightTextMuted, fontSize: 11);
       }),
     ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: lightSurface,
+      elevation: 8,
+      shadowColor: const Color(0xFF1A1F36).withAlpha(25),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+    ),
+    dividerTheme: const DividerThemeData(color: lightCardBorder, thickness: 0.5),
     extensions: const [SinosphereColors.light],
   );
 }
 
-// Theme extension for easy access in widgets
+// ── Theme extension ───────────────────────────────────────────────────────────
 class SinosphereColors extends ThemeExtension<SinosphereColors> {
   final Color bg;
   final Color surf;

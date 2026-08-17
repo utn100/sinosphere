@@ -1633,6 +1633,160 @@ class $CompoundWordsTable extends CompoundWords
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _topicTagMeta = const VerificationMeta(
+    'topicTag',
+  );
+  @override
+  late final GeneratedColumn<String> topicTag = GeneratedColumn<String>(
+    'topic_tag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _synonymsMeta = const VerificationMeta(
+    'synonyms',
+  );
+  @override
+  late final GeneratedColumn<String> synonyms = GeneratedColumn<String>(
+    'synonyms',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _antonymsMeta = const VerificationMeta(
+    'antonyms',
+  );
+  @override
+  late final GeneratedColumn<String> antonyms = GeneratedColumn<String>(
+    'antonyms',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _exampleSentenceMeta = const VerificationMeta(
+    'exampleSentence',
+  );
+  @override
+  late final GeneratedColumn<String> exampleSentence = GeneratedColumn<String>(
+    'example_sentence',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _romajaMeta = const VerificationMeta('romaja');
+  @override
+  late final GeneratedColumn<String> romaja = GeneratedColumn<String>(
+    'romaja',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _topikLevelMeta = const VerificationMeta(
+    'topikLevel',
+  );
+  @override
+  late final GeneratedColumn<int> topikLevel = GeneratedColumn<int>(
+    'topik_level',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isSinoKoreanMeta = const VerificationMeta(
+    'isSinoKorean',
+  );
+  @override
+  late final GeneratedColumn<int> isSinoKorean = GeneratedColumn<int>(
+    'is_sino_korean',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _batchimMeta = const VerificationMeta(
+    'batchim',
+  );
+  @override
+  late final GeneratedColumn<int> batchim = GeneratedColumn<int>(
+    'batchim',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _krVerifiedMeta = const VerificationMeta(
+    'krVerified',
+  );
+  @override
+  late final GeneratedColumn<int> krVerified = GeneratedColumn<int>(
+    'kr_verified',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _posMeta = const VerificationMeta('pos');
+  @override
+  late final GeneratedColumn<String> pos = GeneratedColumn<String>(
+    'pos',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _krSynonymsMeta = const VerificationMeta(
+    'krSynonyms',
+  );
+  @override
+  late final GeneratedColumn<String> krSynonyms = GeneratedColumn<String>(
+    'kr_synonyms',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _krAntonymsMeta = const VerificationMeta(
+    'krAntonyms',
+  );
+  @override
+  late final GeneratedColumn<String> krAntonyms = GeneratedColumn<String>(
+    'kr_antonyms',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _krExampleMeta = const VerificationMeta(
+    'krExample',
+  );
+  @override
+  late final GeneratedColumn<String> krExample = GeneratedColumn<String>(
+    'kr_example',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _topikInSourceMeta = const VerificationMeta(
+    'topikInSource',
+  );
+  @override
+  late final GeneratedColumn<int> topikInSource = GeneratedColumn<int>(
+    'topik_in_source',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1649,6 +1803,20 @@ class $CompoundWordsTable extends CompoundWords
     originType,
     isCognateAnchor,
     aiGenerated,
+    topicTag,
+    synonyms,
+    antonyms,
+    exampleSentence,
+    romaja,
+    topikLevel,
+    isSinoKorean,
+    batchim,
+    krVerified,
+    pos,
+    krSynonyms,
+    krAntonyms,
+    krExample,
+    topikInSource,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1767,6 +1935,99 @@ class $CompoundWordsTable extends CompoundWords
         ),
       );
     }
+    if (data.containsKey('topic_tag')) {
+      context.handle(
+        _topicTagMeta,
+        topicTag.isAcceptableOrUnknown(data['topic_tag']!, _topicTagMeta),
+      );
+    }
+    if (data.containsKey('synonyms')) {
+      context.handle(
+        _synonymsMeta,
+        synonyms.isAcceptableOrUnknown(data['synonyms']!, _synonymsMeta),
+      );
+    }
+    if (data.containsKey('antonyms')) {
+      context.handle(
+        _antonymsMeta,
+        antonyms.isAcceptableOrUnknown(data['antonyms']!, _antonymsMeta),
+      );
+    }
+    if (data.containsKey('example_sentence')) {
+      context.handle(
+        _exampleSentenceMeta,
+        exampleSentence.isAcceptableOrUnknown(
+          data['example_sentence']!,
+          _exampleSentenceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('romaja')) {
+      context.handle(
+        _romajaMeta,
+        romaja.isAcceptableOrUnknown(data['romaja']!, _romajaMeta),
+      );
+    }
+    if (data.containsKey('topik_level')) {
+      context.handle(
+        _topikLevelMeta,
+        topikLevel.isAcceptableOrUnknown(data['topik_level']!, _topikLevelMeta),
+      );
+    }
+    if (data.containsKey('is_sino_korean')) {
+      context.handle(
+        _isSinoKoreanMeta,
+        isSinoKorean.isAcceptableOrUnknown(
+          data['is_sino_korean']!,
+          _isSinoKoreanMeta,
+        ),
+      );
+    }
+    if (data.containsKey('batchim')) {
+      context.handle(
+        _batchimMeta,
+        batchim.isAcceptableOrUnknown(data['batchim']!, _batchimMeta),
+      );
+    }
+    if (data.containsKey('kr_verified')) {
+      context.handle(
+        _krVerifiedMeta,
+        krVerified.isAcceptableOrUnknown(data['kr_verified']!, _krVerifiedMeta),
+      );
+    }
+    if (data.containsKey('pos')) {
+      context.handle(
+        _posMeta,
+        pos.isAcceptableOrUnknown(data['pos']!, _posMeta),
+      );
+    }
+    if (data.containsKey('kr_synonyms')) {
+      context.handle(
+        _krSynonymsMeta,
+        krSynonyms.isAcceptableOrUnknown(data['kr_synonyms']!, _krSynonymsMeta),
+      );
+    }
+    if (data.containsKey('kr_antonyms')) {
+      context.handle(
+        _krAntonymsMeta,
+        krAntonyms.isAcceptableOrUnknown(data['kr_antonyms']!, _krAntonymsMeta),
+      );
+    }
+    if (data.containsKey('kr_example')) {
+      context.handle(
+        _krExampleMeta,
+        krExample.isAcceptableOrUnknown(data['kr_example']!, _krExampleMeta),
+      );
+    }
+    if (data.containsKey('topik_in_source')) {
+      context.handle(
+        _topikInSourceMeta,
+        topikInSource.isAcceptableOrUnknown(
+          data['topik_in_source']!,
+          _topikInSourceMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1832,6 +2093,62 @@ class $CompoundWordsTable extends CompoundWords
         DriftSqlType.int,
         data['${effectivePrefix}ai_generated'],
       )!,
+      topicTag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}topic_tag'],
+      ),
+      synonyms: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}synonyms'],
+      ),
+      antonyms: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}antonyms'],
+      ),
+      exampleSentence: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}example_sentence'],
+      ),
+      romaja: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}romaja'],
+      ),
+      topikLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}topik_level'],
+      ),
+      isSinoKorean: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}is_sino_korean'],
+      )!,
+      batchim: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}batchim'],
+      )!,
+      krVerified: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}kr_verified'],
+      )!,
+      pos: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pos'],
+      ),
+      krSynonyms: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kr_synonyms'],
+      ),
+      krAntonyms: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kr_antonyms'],
+      ),
+      krExample: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kr_example'],
+      ),
+      topikInSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}topik_in_source'],
+      )!,
     );
   }
 
@@ -1856,6 +2173,20 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
   final String originType;
   final int isCognateAnchor;
   final int aiGenerated;
+  final String? topicTag;
+  final String? synonyms;
+  final String? antonyms;
+  final String? exampleSentence;
+  final String? romaja;
+  final int? topikLevel;
+  final int isSinoKorean;
+  final int batchim;
+  final int krVerified;
+  final String? pos;
+  final String? krSynonyms;
+  final String? krAntonyms;
+  final String? krExample;
+  final int topikInSource;
   const CompoundWord({
     required this.id,
     required this.simplified,
@@ -1871,6 +2202,20 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
     required this.originType,
     required this.isCognateAnchor,
     required this.aiGenerated,
+    this.topicTag,
+    this.synonyms,
+    this.antonyms,
+    this.exampleSentence,
+    this.romaja,
+    this.topikLevel,
+    required this.isSinoKorean,
+    required this.batchim,
+    required this.krVerified,
+    this.pos,
+    this.krSynonyms,
+    this.krAntonyms,
+    this.krExample,
+    required this.topikInSource,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1899,6 +2244,40 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
     map['origin_type'] = Variable<String>(originType);
     map['is_cognate_anchor'] = Variable<int>(isCognateAnchor);
     map['ai_generated'] = Variable<int>(aiGenerated);
+    if (!nullToAbsent || topicTag != null) {
+      map['topic_tag'] = Variable<String>(topicTag);
+    }
+    if (!nullToAbsent || synonyms != null) {
+      map['synonyms'] = Variable<String>(synonyms);
+    }
+    if (!nullToAbsent || antonyms != null) {
+      map['antonyms'] = Variable<String>(antonyms);
+    }
+    if (!nullToAbsent || exampleSentence != null) {
+      map['example_sentence'] = Variable<String>(exampleSentence);
+    }
+    if (!nullToAbsent || romaja != null) {
+      map['romaja'] = Variable<String>(romaja);
+    }
+    if (!nullToAbsent || topikLevel != null) {
+      map['topik_level'] = Variable<int>(topikLevel);
+    }
+    map['is_sino_korean'] = Variable<int>(isSinoKorean);
+    map['batchim'] = Variable<int>(batchim);
+    map['kr_verified'] = Variable<int>(krVerified);
+    if (!nullToAbsent || pos != null) {
+      map['pos'] = Variable<String>(pos);
+    }
+    if (!nullToAbsent || krSynonyms != null) {
+      map['kr_synonyms'] = Variable<String>(krSynonyms);
+    }
+    if (!nullToAbsent || krAntonyms != null) {
+      map['kr_antonyms'] = Variable<String>(krAntonyms);
+    }
+    if (!nullToAbsent || krExample != null) {
+      map['kr_example'] = Variable<String>(krExample);
+    }
+    map['topik_in_source'] = Variable<int>(topikInSource);
     return map;
   }
 
@@ -1928,6 +2307,38 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
       originType: Value(originType),
       isCognateAnchor: Value(isCognateAnchor),
       aiGenerated: Value(aiGenerated),
+      topicTag: topicTag == null && nullToAbsent
+          ? const Value.absent()
+          : Value(topicTag),
+      synonyms: synonyms == null && nullToAbsent
+          ? const Value.absent()
+          : Value(synonyms),
+      antonyms: antonyms == null && nullToAbsent
+          ? const Value.absent()
+          : Value(antonyms),
+      exampleSentence: exampleSentence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(exampleSentence),
+      romaja: romaja == null && nullToAbsent
+          ? const Value.absent()
+          : Value(romaja),
+      topikLevel: topikLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(topikLevel),
+      isSinoKorean: Value(isSinoKorean),
+      batchim: Value(batchim),
+      krVerified: Value(krVerified),
+      pos: pos == null && nullToAbsent ? const Value.absent() : Value(pos),
+      krSynonyms: krSynonyms == null && nullToAbsent
+          ? const Value.absent()
+          : Value(krSynonyms),
+      krAntonyms: krAntonyms == null && nullToAbsent
+          ? const Value.absent()
+          : Value(krAntonyms),
+      krExample: krExample == null && nullToAbsent
+          ? const Value.absent()
+          : Value(krExample),
+      topikInSource: Value(topikInSource),
     );
   }
 
@@ -1951,6 +2362,20 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
       originType: serializer.fromJson<String>(json['originType']),
       isCognateAnchor: serializer.fromJson<int>(json['isCognateAnchor']),
       aiGenerated: serializer.fromJson<int>(json['aiGenerated']),
+      topicTag: serializer.fromJson<String?>(json['topicTag']),
+      synonyms: serializer.fromJson<String?>(json['synonyms']),
+      antonyms: serializer.fromJson<String?>(json['antonyms']),
+      exampleSentence: serializer.fromJson<String?>(json['exampleSentence']),
+      romaja: serializer.fromJson<String?>(json['romaja']),
+      topikLevel: serializer.fromJson<int?>(json['topikLevel']),
+      isSinoKorean: serializer.fromJson<int>(json['isSinoKorean']),
+      batchim: serializer.fromJson<int>(json['batchim']),
+      krVerified: serializer.fromJson<int>(json['krVerified']),
+      pos: serializer.fromJson<String?>(json['pos']),
+      krSynonyms: serializer.fromJson<String?>(json['krSynonyms']),
+      krAntonyms: serializer.fromJson<String?>(json['krAntonyms']),
+      krExample: serializer.fromJson<String?>(json['krExample']),
+      topikInSource: serializer.fromJson<int>(json['topikInSource']),
     );
   }
   @override
@@ -1971,6 +2396,20 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
       'originType': serializer.toJson<String>(originType),
       'isCognateAnchor': serializer.toJson<int>(isCognateAnchor),
       'aiGenerated': serializer.toJson<int>(aiGenerated),
+      'topicTag': serializer.toJson<String?>(topicTag),
+      'synonyms': serializer.toJson<String?>(synonyms),
+      'antonyms': serializer.toJson<String?>(antonyms),
+      'exampleSentence': serializer.toJson<String?>(exampleSentence),
+      'romaja': serializer.toJson<String?>(romaja),
+      'topikLevel': serializer.toJson<int?>(topikLevel),
+      'isSinoKorean': serializer.toJson<int>(isSinoKorean),
+      'batchim': serializer.toJson<int>(batchim),
+      'krVerified': serializer.toJson<int>(krVerified),
+      'pos': serializer.toJson<String?>(pos),
+      'krSynonyms': serializer.toJson<String?>(krSynonyms),
+      'krAntonyms': serializer.toJson<String?>(krAntonyms),
+      'krExample': serializer.toJson<String?>(krExample),
+      'topikInSource': serializer.toJson<int>(topikInSource),
     };
   }
 
@@ -1989,6 +2428,20 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
     String? originType,
     int? isCognateAnchor,
     int? aiGenerated,
+    Value<String?> topicTag = const Value.absent(),
+    Value<String?> synonyms = const Value.absent(),
+    Value<String?> antonyms = const Value.absent(),
+    Value<String?> exampleSentence = const Value.absent(),
+    Value<String?> romaja = const Value.absent(),
+    Value<int?> topikLevel = const Value.absent(),
+    int? isSinoKorean,
+    int? batchim,
+    int? krVerified,
+    Value<String?> pos = const Value.absent(),
+    Value<String?> krSynonyms = const Value.absent(),
+    Value<String?> krAntonyms = const Value.absent(),
+    Value<String?> krExample = const Value.absent(),
+    int? topikInSource,
   }) => CompoundWord(
     id: id ?? this.id,
     simplified: simplified ?? this.simplified,
@@ -2008,6 +2461,22 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
     originType: originType ?? this.originType,
     isCognateAnchor: isCognateAnchor ?? this.isCognateAnchor,
     aiGenerated: aiGenerated ?? this.aiGenerated,
+    topicTag: topicTag.present ? topicTag.value : this.topicTag,
+    synonyms: synonyms.present ? synonyms.value : this.synonyms,
+    antonyms: antonyms.present ? antonyms.value : this.antonyms,
+    exampleSentence: exampleSentence.present
+        ? exampleSentence.value
+        : this.exampleSentence,
+    romaja: romaja.present ? romaja.value : this.romaja,
+    topikLevel: topikLevel.present ? topikLevel.value : this.topikLevel,
+    isSinoKorean: isSinoKorean ?? this.isSinoKorean,
+    batchim: batchim ?? this.batchim,
+    krVerified: krVerified ?? this.krVerified,
+    pos: pos.present ? pos.value : this.pos,
+    krSynonyms: krSynonyms.present ? krSynonyms.value : this.krSynonyms,
+    krAntonyms: krAntonyms.present ? krAntonyms.value : this.krAntonyms,
+    krExample: krExample.present ? krExample.value : this.krExample,
+    topikInSource: topikInSource ?? this.topikInSource,
   );
   CompoundWord copyWithCompanion(CompoundWordsCompanion data) {
     return CompoundWord(
@@ -2043,6 +2512,34 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
       aiGenerated: data.aiGenerated.present
           ? data.aiGenerated.value
           : this.aiGenerated,
+      topicTag: data.topicTag.present ? data.topicTag.value : this.topicTag,
+      synonyms: data.synonyms.present ? data.synonyms.value : this.synonyms,
+      antonyms: data.antonyms.present ? data.antonyms.value : this.antonyms,
+      exampleSentence: data.exampleSentence.present
+          ? data.exampleSentence.value
+          : this.exampleSentence,
+      romaja: data.romaja.present ? data.romaja.value : this.romaja,
+      topikLevel: data.topikLevel.present
+          ? data.topikLevel.value
+          : this.topikLevel,
+      isSinoKorean: data.isSinoKorean.present
+          ? data.isSinoKorean.value
+          : this.isSinoKorean,
+      batchim: data.batchim.present ? data.batchim.value : this.batchim,
+      krVerified: data.krVerified.present
+          ? data.krVerified.value
+          : this.krVerified,
+      pos: data.pos.present ? data.pos.value : this.pos,
+      krSynonyms: data.krSynonyms.present
+          ? data.krSynonyms.value
+          : this.krSynonyms,
+      krAntonyms: data.krAntonyms.present
+          ? data.krAntonyms.value
+          : this.krAntonyms,
+      krExample: data.krExample.present ? data.krExample.value : this.krExample,
+      topikInSource: data.topikInSource.present
+          ? data.topikInSource.value
+          : this.topikInSource,
     );
   }
 
@@ -2062,13 +2559,27 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
           ..write('frequencyRank: $frequencyRank, ')
           ..write('originType: $originType, ')
           ..write('isCognateAnchor: $isCognateAnchor, ')
-          ..write('aiGenerated: $aiGenerated')
+          ..write('aiGenerated: $aiGenerated, ')
+          ..write('topicTag: $topicTag, ')
+          ..write('synonyms: $synonyms, ')
+          ..write('antonyms: $antonyms, ')
+          ..write('exampleSentence: $exampleSentence, ')
+          ..write('romaja: $romaja, ')
+          ..write('topikLevel: $topikLevel, ')
+          ..write('isSinoKorean: $isSinoKorean, ')
+          ..write('batchim: $batchim, ')
+          ..write('krVerified: $krVerified, ')
+          ..write('pos: $pos, ')
+          ..write('krSynonyms: $krSynonyms, ')
+          ..write('krAntonyms: $krAntonyms, ')
+          ..write('krExample: $krExample, ')
+          ..write('topikInSource: $topikInSource')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     simplified,
     traditional,
@@ -2083,7 +2594,21 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
     originType,
     isCognateAnchor,
     aiGenerated,
-  );
+    topicTag,
+    synonyms,
+    antonyms,
+    exampleSentence,
+    romaja,
+    topikLevel,
+    isSinoKorean,
+    batchim,
+    krVerified,
+    pos,
+    krSynonyms,
+    krAntonyms,
+    krExample,
+    topikInSource,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2101,7 +2626,21 @@ class CompoundWord extends DataClass implements Insertable<CompoundWord> {
           other.frequencyRank == this.frequencyRank &&
           other.originType == this.originType &&
           other.isCognateAnchor == this.isCognateAnchor &&
-          other.aiGenerated == this.aiGenerated);
+          other.aiGenerated == this.aiGenerated &&
+          other.topicTag == this.topicTag &&
+          other.synonyms == this.synonyms &&
+          other.antonyms == this.antonyms &&
+          other.exampleSentence == this.exampleSentence &&
+          other.romaja == this.romaja &&
+          other.topikLevel == this.topikLevel &&
+          other.isSinoKorean == this.isSinoKorean &&
+          other.batchim == this.batchim &&
+          other.krVerified == this.krVerified &&
+          other.pos == this.pos &&
+          other.krSynonyms == this.krSynonyms &&
+          other.krAntonyms == this.krAntonyms &&
+          other.krExample == this.krExample &&
+          other.topikInSource == this.topikInSource);
 }
 
 class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
@@ -2119,6 +2658,20 @@ class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
   final Value<String> originType;
   final Value<int> isCognateAnchor;
   final Value<int> aiGenerated;
+  final Value<String?> topicTag;
+  final Value<String?> synonyms;
+  final Value<String?> antonyms;
+  final Value<String?> exampleSentence;
+  final Value<String?> romaja;
+  final Value<int?> topikLevel;
+  final Value<int> isSinoKorean;
+  final Value<int> batchim;
+  final Value<int> krVerified;
+  final Value<String?> pos;
+  final Value<String?> krSynonyms;
+  final Value<String?> krAntonyms;
+  final Value<String?> krExample;
+  final Value<int> topikInSource;
   final Value<int> rowid;
   const CompoundWordsCompanion({
     this.id = const Value.absent(),
@@ -2135,6 +2688,20 @@ class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
     this.originType = const Value.absent(),
     this.isCognateAnchor = const Value.absent(),
     this.aiGenerated = const Value.absent(),
+    this.topicTag = const Value.absent(),
+    this.synonyms = const Value.absent(),
+    this.antonyms = const Value.absent(),
+    this.exampleSentence = const Value.absent(),
+    this.romaja = const Value.absent(),
+    this.topikLevel = const Value.absent(),
+    this.isSinoKorean = const Value.absent(),
+    this.batchim = const Value.absent(),
+    this.krVerified = const Value.absent(),
+    this.pos = const Value.absent(),
+    this.krSynonyms = const Value.absent(),
+    this.krAntonyms = const Value.absent(),
+    this.krExample = const Value.absent(),
+    this.topikInSource = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CompoundWordsCompanion.insert({
@@ -2152,6 +2719,20 @@ class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
     this.originType = const Value.absent(),
     this.isCognateAnchor = const Value.absent(),
     this.aiGenerated = const Value.absent(),
+    this.topicTag = const Value.absent(),
+    this.synonyms = const Value.absent(),
+    this.antonyms = const Value.absent(),
+    this.exampleSentence = const Value.absent(),
+    this.romaja = const Value.absent(),
+    this.topikLevel = const Value.absent(),
+    this.isSinoKorean = const Value.absent(),
+    this.batchim = const Value.absent(),
+    this.krVerified = const Value.absent(),
+    this.pos = const Value.absent(),
+    this.krSynonyms = const Value.absent(),
+    this.krAntonyms = const Value.absent(),
+    this.krExample = const Value.absent(),
+    this.topikInSource = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        simplified = Value(simplified),
@@ -2171,6 +2752,20 @@ class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
     Expression<String>? originType,
     Expression<int>? isCognateAnchor,
     Expression<int>? aiGenerated,
+    Expression<String>? topicTag,
+    Expression<String>? synonyms,
+    Expression<String>? antonyms,
+    Expression<String>? exampleSentence,
+    Expression<String>? romaja,
+    Expression<int>? topikLevel,
+    Expression<int>? isSinoKorean,
+    Expression<int>? batchim,
+    Expression<int>? krVerified,
+    Expression<String>? pos,
+    Expression<String>? krSynonyms,
+    Expression<String>? krAntonyms,
+    Expression<String>? krExample,
+    Expression<int>? topikInSource,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2188,6 +2783,20 @@ class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
       if (originType != null) 'origin_type': originType,
       if (isCognateAnchor != null) 'is_cognate_anchor': isCognateAnchor,
       if (aiGenerated != null) 'ai_generated': aiGenerated,
+      if (topicTag != null) 'topic_tag': topicTag,
+      if (synonyms != null) 'synonyms': synonyms,
+      if (antonyms != null) 'antonyms': antonyms,
+      if (exampleSentence != null) 'example_sentence': exampleSentence,
+      if (romaja != null) 'romaja': romaja,
+      if (topikLevel != null) 'topik_level': topikLevel,
+      if (isSinoKorean != null) 'is_sino_korean': isSinoKorean,
+      if (batchim != null) 'batchim': batchim,
+      if (krVerified != null) 'kr_verified': krVerified,
+      if (pos != null) 'pos': pos,
+      if (krSynonyms != null) 'kr_synonyms': krSynonyms,
+      if (krAntonyms != null) 'kr_antonyms': krAntonyms,
+      if (krExample != null) 'kr_example': krExample,
+      if (topikInSource != null) 'topik_in_source': topikInSource,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2207,6 +2816,20 @@ class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
     Value<String>? originType,
     Value<int>? isCognateAnchor,
     Value<int>? aiGenerated,
+    Value<String?>? topicTag,
+    Value<String?>? synonyms,
+    Value<String?>? antonyms,
+    Value<String?>? exampleSentence,
+    Value<String?>? romaja,
+    Value<int?>? topikLevel,
+    Value<int>? isSinoKorean,
+    Value<int>? batchim,
+    Value<int>? krVerified,
+    Value<String?>? pos,
+    Value<String?>? krSynonyms,
+    Value<String?>? krAntonyms,
+    Value<String?>? krExample,
+    Value<int>? topikInSource,
     Value<int>? rowid,
   }) {
     return CompoundWordsCompanion(
@@ -2224,6 +2847,20 @@ class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
       originType: originType ?? this.originType,
       isCognateAnchor: isCognateAnchor ?? this.isCognateAnchor,
       aiGenerated: aiGenerated ?? this.aiGenerated,
+      topicTag: topicTag ?? this.topicTag,
+      synonyms: synonyms ?? this.synonyms,
+      antonyms: antonyms ?? this.antonyms,
+      exampleSentence: exampleSentence ?? this.exampleSentence,
+      romaja: romaja ?? this.romaja,
+      topikLevel: topikLevel ?? this.topikLevel,
+      isSinoKorean: isSinoKorean ?? this.isSinoKorean,
+      batchim: batchim ?? this.batchim,
+      krVerified: krVerified ?? this.krVerified,
+      pos: pos ?? this.pos,
+      krSynonyms: krSynonyms ?? this.krSynonyms,
+      krAntonyms: krAntonyms ?? this.krAntonyms,
+      krExample: krExample ?? this.krExample,
+      topikInSource: topikInSource ?? this.topikInSource,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2273,6 +2910,48 @@ class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
     if (aiGenerated.present) {
       map['ai_generated'] = Variable<int>(aiGenerated.value);
     }
+    if (topicTag.present) {
+      map['topic_tag'] = Variable<String>(topicTag.value);
+    }
+    if (synonyms.present) {
+      map['synonyms'] = Variable<String>(synonyms.value);
+    }
+    if (antonyms.present) {
+      map['antonyms'] = Variable<String>(antonyms.value);
+    }
+    if (exampleSentence.present) {
+      map['example_sentence'] = Variable<String>(exampleSentence.value);
+    }
+    if (romaja.present) {
+      map['romaja'] = Variable<String>(romaja.value);
+    }
+    if (topikLevel.present) {
+      map['topik_level'] = Variable<int>(topikLevel.value);
+    }
+    if (isSinoKorean.present) {
+      map['is_sino_korean'] = Variable<int>(isSinoKorean.value);
+    }
+    if (batchim.present) {
+      map['batchim'] = Variable<int>(batchim.value);
+    }
+    if (krVerified.present) {
+      map['kr_verified'] = Variable<int>(krVerified.value);
+    }
+    if (pos.present) {
+      map['pos'] = Variable<String>(pos.value);
+    }
+    if (krSynonyms.present) {
+      map['kr_synonyms'] = Variable<String>(krSynonyms.value);
+    }
+    if (krAntonyms.present) {
+      map['kr_antonyms'] = Variable<String>(krAntonyms.value);
+    }
+    if (krExample.present) {
+      map['kr_example'] = Variable<String>(krExample.value);
+    }
+    if (topikInSource.present) {
+      map['topik_in_source'] = Variable<int>(topikInSource.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2296,6 +2975,20 @@ class CompoundWordsCompanion extends UpdateCompanion<CompoundWord> {
           ..write('originType: $originType, ')
           ..write('isCognateAnchor: $isCognateAnchor, ')
           ..write('aiGenerated: $aiGenerated, ')
+          ..write('topicTag: $topicTag, ')
+          ..write('synonyms: $synonyms, ')
+          ..write('antonyms: $antonyms, ')
+          ..write('exampleSentence: $exampleSentence, ')
+          ..write('romaja: $romaja, ')
+          ..write('topikLevel: $topikLevel, ')
+          ..write('isSinoKorean: $isSinoKorean, ')
+          ..write('batchim: $batchim, ')
+          ..write('krVerified: $krVerified, ')
+          ..write('pos: $pos, ')
+          ..write('krSynonyms: $krSynonyms, ')
+          ..write('krAntonyms: $krAntonyms, ')
+          ..write('krExample: $krExample, ')
+          ..write('topikInSource: $topikInSource, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3790,6 +4483,678 @@ class AiCacheCompanion extends UpdateCompanion<AiCacheData> {
   }
 }
 
+class $KoreanWordsTable extends KoreanWords
+    with TableInfo<$KoreanWordsTable, KoreanWord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KoreanWordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hangulMeta = const VerificationMeta('hangul');
+  @override
+  late final GeneratedColumn<String> hangul = GeneratedColumn<String>(
+    'hangul',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _romajaMeta = const VerificationMeta('romaja');
+  @override
+  late final GeneratedColumn<String> romaja = GeneratedColumn<String>(
+    'romaja',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _englishDefMeta = const VerificationMeta(
+    'englishDef',
+  );
+  @override
+  late final GeneratedColumn<String> englishDef = GeneratedColumn<String>(
+    'english_def',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _topikLevelMeta = const VerificationMeta(
+    'topikLevel',
+  );
+  @override
+  late final GeneratedColumn<int> topikLevel = GeneratedColumn<int>(
+    'topik_level',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _posMeta = const VerificationMeta('pos');
+  @override
+  late final GeneratedColumn<String> pos = GeneratedColumn<String>(
+    'pos',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _frequencyRankMeta = const VerificationMeta(
+    'frequencyRank',
+  );
+  @override
+  late final GeneratedColumn<int> frequencyRank = GeneratedColumn<int>(
+    'frequency_rank',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _niklLevelMeta = const VerificationMeta(
+    'niklLevel',
+  );
+  @override
+  late final GeneratedColumn<String> niklLevel = GeneratedColumn<String>(
+    'nikl_level',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _synonymsMeta = const VerificationMeta(
+    'synonyms',
+  );
+  @override
+  late final GeneratedColumn<String> synonyms = GeneratedColumn<String>(
+    'synonyms',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _antonymsMeta = const VerificationMeta(
+    'antonyms',
+  );
+  @override
+  late final GeneratedColumn<String> antonyms = GeneratedColumn<String>(
+    'antonyms',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _exampleSentenceMeta = const VerificationMeta(
+    'exampleSentence',
+  );
+  @override
+  late final GeneratedColumn<String> exampleSentence = GeneratedColumn<String>(
+    'example_sentence',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    hangul,
+    romaja,
+    englishDef,
+    topikLevel,
+    pos,
+    frequencyRank,
+    niklLevel,
+    synonyms,
+    antonyms,
+    exampleSentence,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'korean_words';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<KoreanWord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('hangul')) {
+      context.handle(
+        _hangulMeta,
+        hangul.isAcceptableOrUnknown(data['hangul']!, _hangulMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hangulMeta);
+    }
+    if (data.containsKey('romaja')) {
+      context.handle(
+        _romajaMeta,
+        romaja.isAcceptableOrUnknown(data['romaja']!, _romajaMeta),
+      );
+    }
+    if (data.containsKey('english_def')) {
+      context.handle(
+        _englishDefMeta,
+        englishDef.isAcceptableOrUnknown(data['english_def']!, _englishDefMeta),
+      );
+    }
+    if (data.containsKey('topik_level')) {
+      context.handle(
+        _topikLevelMeta,
+        topikLevel.isAcceptableOrUnknown(data['topik_level']!, _topikLevelMeta),
+      );
+    }
+    if (data.containsKey('pos')) {
+      context.handle(
+        _posMeta,
+        pos.isAcceptableOrUnknown(data['pos']!, _posMeta),
+      );
+    }
+    if (data.containsKey('frequency_rank')) {
+      context.handle(
+        _frequencyRankMeta,
+        frequencyRank.isAcceptableOrUnknown(
+          data['frequency_rank']!,
+          _frequencyRankMeta,
+        ),
+      );
+    }
+    if (data.containsKey('nikl_level')) {
+      context.handle(
+        _niklLevelMeta,
+        niklLevel.isAcceptableOrUnknown(data['nikl_level']!, _niklLevelMeta),
+      );
+    }
+    if (data.containsKey('synonyms')) {
+      context.handle(
+        _synonymsMeta,
+        synonyms.isAcceptableOrUnknown(data['synonyms']!, _synonymsMeta),
+      );
+    }
+    if (data.containsKey('antonyms')) {
+      context.handle(
+        _antonymsMeta,
+        antonyms.isAcceptableOrUnknown(data['antonyms']!, _antonymsMeta),
+      );
+    }
+    if (data.containsKey('example_sentence')) {
+      context.handle(
+        _exampleSentenceMeta,
+        exampleSentence.isAcceptableOrUnknown(
+          data['example_sentence']!,
+          _exampleSentenceMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  KoreanWord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KoreanWord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      hangul: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hangul'],
+      )!,
+      romaja: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}romaja'],
+      ),
+      englishDef: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}english_def'],
+      )!,
+      topikLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}topik_level'],
+      ),
+      pos: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pos'],
+      ),
+      frequencyRank: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}frequency_rank'],
+      ),
+      niklLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nikl_level'],
+      ),
+      synonyms: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}synonyms'],
+      ),
+      antonyms: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}antonyms'],
+      ),
+      exampleSentence: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}example_sentence'],
+      ),
+    );
+  }
+
+  @override
+  $KoreanWordsTable createAlias(String alias) {
+    return $KoreanWordsTable(attachedDatabase, alias);
+  }
+}
+
+class KoreanWord extends DataClass implements Insertable<KoreanWord> {
+  final String id;
+  final String hangul;
+  final String? romaja;
+  final String englishDef;
+  final int? topikLevel;
+  final String? pos;
+  final int? frequencyRank;
+  final String? niklLevel;
+  final String? synonyms;
+  final String? antonyms;
+  final String? exampleSentence;
+  const KoreanWord({
+    required this.id,
+    required this.hangul,
+    this.romaja,
+    required this.englishDef,
+    this.topikLevel,
+    this.pos,
+    this.frequencyRank,
+    this.niklLevel,
+    this.synonyms,
+    this.antonyms,
+    this.exampleSentence,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['hangul'] = Variable<String>(hangul);
+    if (!nullToAbsent || romaja != null) {
+      map['romaja'] = Variable<String>(romaja);
+    }
+    map['english_def'] = Variable<String>(englishDef);
+    if (!nullToAbsent || topikLevel != null) {
+      map['topik_level'] = Variable<int>(topikLevel);
+    }
+    if (!nullToAbsent || pos != null) {
+      map['pos'] = Variable<String>(pos);
+    }
+    if (!nullToAbsent || frequencyRank != null) {
+      map['frequency_rank'] = Variable<int>(frequencyRank);
+    }
+    if (!nullToAbsent || niklLevel != null) {
+      map['nikl_level'] = Variable<String>(niklLevel);
+    }
+    if (!nullToAbsent || synonyms != null) {
+      map['synonyms'] = Variable<String>(synonyms);
+    }
+    if (!nullToAbsent || antonyms != null) {
+      map['antonyms'] = Variable<String>(antonyms);
+    }
+    if (!nullToAbsent || exampleSentence != null) {
+      map['example_sentence'] = Variable<String>(exampleSentence);
+    }
+    return map;
+  }
+
+  KoreanWordsCompanion toCompanion(bool nullToAbsent) {
+    return KoreanWordsCompanion(
+      id: Value(id),
+      hangul: Value(hangul),
+      romaja: romaja == null && nullToAbsent
+          ? const Value.absent()
+          : Value(romaja),
+      englishDef: Value(englishDef),
+      topikLevel: topikLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(topikLevel),
+      pos: pos == null && nullToAbsent ? const Value.absent() : Value(pos),
+      frequencyRank: frequencyRank == null && nullToAbsent
+          ? const Value.absent()
+          : Value(frequencyRank),
+      niklLevel: niklLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(niklLevel),
+      synonyms: synonyms == null && nullToAbsent
+          ? const Value.absent()
+          : Value(synonyms),
+      antonyms: antonyms == null && nullToAbsent
+          ? const Value.absent()
+          : Value(antonyms),
+      exampleSentence: exampleSentence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(exampleSentence),
+    );
+  }
+
+  factory KoreanWord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KoreanWord(
+      id: serializer.fromJson<String>(json['id']),
+      hangul: serializer.fromJson<String>(json['hangul']),
+      romaja: serializer.fromJson<String?>(json['romaja']),
+      englishDef: serializer.fromJson<String>(json['englishDef']),
+      topikLevel: serializer.fromJson<int?>(json['topikLevel']),
+      pos: serializer.fromJson<String?>(json['pos']),
+      frequencyRank: serializer.fromJson<int?>(json['frequencyRank']),
+      niklLevel: serializer.fromJson<String?>(json['niklLevel']),
+      synonyms: serializer.fromJson<String?>(json['synonyms']),
+      antonyms: serializer.fromJson<String?>(json['antonyms']),
+      exampleSentence: serializer.fromJson<String?>(json['exampleSentence']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'hangul': serializer.toJson<String>(hangul),
+      'romaja': serializer.toJson<String?>(romaja),
+      'englishDef': serializer.toJson<String>(englishDef),
+      'topikLevel': serializer.toJson<int?>(topikLevel),
+      'pos': serializer.toJson<String?>(pos),
+      'frequencyRank': serializer.toJson<int?>(frequencyRank),
+      'niklLevel': serializer.toJson<String?>(niklLevel),
+      'synonyms': serializer.toJson<String?>(synonyms),
+      'antonyms': serializer.toJson<String?>(antonyms),
+      'exampleSentence': serializer.toJson<String?>(exampleSentence),
+    };
+  }
+
+  KoreanWord copyWith({
+    String? id,
+    String? hangul,
+    Value<String?> romaja = const Value.absent(),
+    String? englishDef,
+    Value<int?> topikLevel = const Value.absent(),
+    Value<String?> pos = const Value.absent(),
+    Value<int?> frequencyRank = const Value.absent(),
+    Value<String?> niklLevel = const Value.absent(),
+    Value<String?> synonyms = const Value.absent(),
+    Value<String?> antonyms = const Value.absent(),
+    Value<String?> exampleSentence = const Value.absent(),
+  }) => KoreanWord(
+    id: id ?? this.id,
+    hangul: hangul ?? this.hangul,
+    romaja: romaja.present ? romaja.value : this.romaja,
+    englishDef: englishDef ?? this.englishDef,
+    topikLevel: topikLevel.present ? topikLevel.value : this.topikLevel,
+    pos: pos.present ? pos.value : this.pos,
+    frequencyRank: frequencyRank.present
+        ? frequencyRank.value
+        : this.frequencyRank,
+    niklLevel: niklLevel.present ? niklLevel.value : this.niklLevel,
+    synonyms: synonyms.present ? synonyms.value : this.synonyms,
+    antonyms: antonyms.present ? antonyms.value : this.antonyms,
+    exampleSentence: exampleSentence.present
+        ? exampleSentence.value
+        : this.exampleSentence,
+  );
+  KoreanWord copyWithCompanion(KoreanWordsCompanion data) {
+    return KoreanWord(
+      id: data.id.present ? data.id.value : this.id,
+      hangul: data.hangul.present ? data.hangul.value : this.hangul,
+      romaja: data.romaja.present ? data.romaja.value : this.romaja,
+      englishDef: data.englishDef.present
+          ? data.englishDef.value
+          : this.englishDef,
+      topikLevel: data.topikLevel.present
+          ? data.topikLevel.value
+          : this.topikLevel,
+      pos: data.pos.present ? data.pos.value : this.pos,
+      frequencyRank: data.frequencyRank.present
+          ? data.frequencyRank.value
+          : this.frequencyRank,
+      niklLevel: data.niklLevel.present ? data.niklLevel.value : this.niklLevel,
+      synonyms: data.synonyms.present ? data.synonyms.value : this.synonyms,
+      antonyms: data.antonyms.present ? data.antonyms.value : this.antonyms,
+      exampleSentence: data.exampleSentence.present
+          ? data.exampleSentence.value
+          : this.exampleSentence,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KoreanWord(')
+          ..write('id: $id, ')
+          ..write('hangul: $hangul, ')
+          ..write('romaja: $romaja, ')
+          ..write('englishDef: $englishDef, ')
+          ..write('topikLevel: $topikLevel, ')
+          ..write('pos: $pos, ')
+          ..write('frequencyRank: $frequencyRank, ')
+          ..write('niklLevel: $niklLevel, ')
+          ..write('synonyms: $synonyms, ')
+          ..write('antonyms: $antonyms, ')
+          ..write('exampleSentence: $exampleSentence')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    hangul,
+    romaja,
+    englishDef,
+    topikLevel,
+    pos,
+    frequencyRank,
+    niklLevel,
+    synonyms,
+    antonyms,
+    exampleSentence,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KoreanWord &&
+          other.id == this.id &&
+          other.hangul == this.hangul &&
+          other.romaja == this.romaja &&
+          other.englishDef == this.englishDef &&
+          other.topikLevel == this.topikLevel &&
+          other.pos == this.pos &&
+          other.frequencyRank == this.frequencyRank &&
+          other.niklLevel == this.niklLevel &&
+          other.synonyms == this.synonyms &&
+          other.antonyms == this.antonyms &&
+          other.exampleSentence == this.exampleSentence);
+}
+
+class KoreanWordsCompanion extends UpdateCompanion<KoreanWord> {
+  final Value<String> id;
+  final Value<String> hangul;
+  final Value<String?> romaja;
+  final Value<String> englishDef;
+  final Value<int?> topikLevel;
+  final Value<String?> pos;
+  final Value<int?> frequencyRank;
+  final Value<String?> niklLevel;
+  final Value<String?> synonyms;
+  final Value<String?> antonyms;
+  final Value<String?> exampleSentence;
+  final Value<int> rowid;
+  const KoreanWordsCompanion({
+    this.id = const Value.absent(),
+    this.hangul = const Value.absent(),
+    this.romaja = const Value.absent(),
+    this.englishDef = const Value.absent(),
+    this.topikLevel = const Value.absent(),
+    this.pos = const Value.absent(),
+    this.frequencyRank = const Value.absent(),
+    this.niklLevel = const Value.absent(),
+    this.synonyms = const Value.absent(),
+    this.antonyms = const Value.absent(),
+    this.exampleSentence = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KoreanWordsCompanion.insert({
+    required String id,
+    required String hangul,
+    this.romaja = const Value.absent(),
+    this.englishDef = const Value.absent(),
+    this.topikLevel = const Value.absent(),
+    this.pos = const Value.absent(),
+    this.frequencyRank = const Value.absent(),
+    this.niklLevel = const Value.absent(),
+    this.synonyms = const Value.absent(),
+    this.antonyms = const Value.absent(),
+    this.exampleSentence = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       hangul = Value(hangul);
+  static Insertable<KoreanWord> custom({
+    Expression<String>? id,
+    Expression<String>? hangul,
+    Expression<String>? romaja,
+    Expression<String>? englishDef,
+    Expression<int>? topikLevel,
+    Expression<String>? pos,
+    Expression<int>? frequencyRank,
+    Expression<String>? niklLevel,
+    Expression<String>? synonyms,
+    Expression<String>? antonyms,
+    Expression<String>? exampleSentence,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (hangul != null) 'hangul': hangul,
+      if (romaja != null) 'romaja': romaja,
+      if (englishDef != null) 'english_def': englishDef,
+      if (topikLevel != null) 'topik_level': topikLevel,
+      if (pos != null) 'pos': pos,
+      if (frequencyRank != null) 'frequency_rank': frequencyRank,
+      if (niklLevel != null) 'nikl_level': niklLevel,
+      if (synonyms != null) 'synonyms': synonyms,
+      if (antonyms != null) 'antonyms': antonyms,
+      if (exampleSentence != null) 'example_sentence': exampleSentence,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KoreanWordsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? hangul,
+    Value<String?>? romaja,
+    Value<String>? englishDef,
+    Value<int?>? topikLevel,
+    Value<String?>? pos,
+    Value<int?>? frequencyRank,
+    Value<String?>? niklLevel,
+    Value<String?>? synonyms,
+    Value<String?>? antonyms,
+    Value<String?>? exampleSentence,
+    Value<int>? rowid,
+  }) {
+    return KoreanWordsCompanion(
+      id: id ?? this.id,
+      hangul: hangul ?? this.hangul,
+      romaja: romaja ?? this.romaja,
+      englishDef: englishDef ?? this.englishDef,
+      topikLevel: topikLevel ?? this.topikLevel,
+      pos: pos ?? this.pos,
+      frequencyRank: frequencyRank ?? this.frequencyRank,
+      niklLevel: niklLevel ?? this.niklLevel,
+      synonyms: synonyms ?? this.synonyms,
+      antonyms: antonyms ?? this.antonyms,
+      exampleSentence: exampleSentence ?? this.exampleSentence,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (hangul.present) {
+      map['hangul'] = Variable<String>(hangul.value);
+    }
+    if (romaja.present) {
+      map['romaja'] = Variable<String>(romaja.value);
+    }
+    if (englishDef.present) {
+      map['english_def'] = Variable<String>(englishDef.value);
+    }
+    if (topikLevel.present) {
+      map['topik_level'] = Variable<int>(topikLevel.value);
+    }
+    if (pos.present) {
+      map['pos'] = Variable<String>(pos.value);
+    }
+    if (frequencyRank.present) {
+      map['frequency_rank'] = Variable<int>(frequencyRank.value);
+    }
+    if (niklLevel.present) {
+      map['nikl_level'] = Variable<String>(niklLevel.value);
+    }
+    if (synonyms.present) {
+      map['synonyms'] = Variable<String>(synonyms.value);
+    }
+    if (antonyms.present) {
+      map['antonyms'] = Variable<String>(antonyms.value);
+    }
+    if (exampleSentence.present) {
+      map['example_sentence'] = Variable<String>(exampleSentence.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KoreanWordsCompanion(')
+          ..write('id: $id, ')
+          ..write('hangul: $hangul, ')
+          ..write('romaja: $romaja, ')
+          ..write('englishDef: $englishDef, ')
+          ..write('topikLevel: $topikLevel, ')
+          ..write('pos: $pos, ')
+          ..write('frequencyRank: $frequencyRank, ')
+          ..write('niklLevel: $niklLevel, ')
+          ..write('synonyms: $synonyms, ')
+          ..write('antonyms: $antonyms, ')
+          ..write('exampleSentence: $exampleSentence, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3806,6 +5171,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $UserCollectionWordsTable(this);
   late final $ReadingHistoryTable readingHistory = $ReadingHistoryTable(this);
   late final $AiCacheTable aiCache = $AiCacheTable(this);
+  late final $KoreanWordsTable koreanWords = $KoreanWordsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3820,6 +5186,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     userCollectionWords,
     readingHistory,
     aiCache,
+    koreanWords,
   ];
 }
 
@@ -5119,6 +6486,20 @@ typedef $$CompoundWordsTableCreateCompanionBuilder =
       Value<String> originType,
       Value<int> isCognateAnchor,
       Value<int> aiGenerated,
+      Value<String?> topicTag,
+      Value<String?> synonyms,
+      Value<String?> antonyms,
+      Value<String?> exampleSentence,
+      Value<String?> romaja,
+      Value<int?> topikLevel,
+      Value<int> isSinoKorean,
+      Value<int> batchim,
+      Value<int> krVerified,
+      Value<String?> pos,
+      Value<String?> krSynonyms,
+      Value<String?> krAntonyms,
+      Value<String?> krExample,
+      Value<int> topikInSource,
       Value<int> rowid,
     });
 typedef $$CompoundWordsTableUpdateCompanionBuilder =
@@ -5137,6 +6518,20 @@ typedef $$CompoundWordsTableUpdateCompanionBuilder =
       Value<String> originType,
       Value<int> isCognateAnchor,
       Value<int> aiGenerated,
+      Value<String?> topicTag,
+      Value<String?> synonyms,
+      Value<String?> antonyms,
+      Value<String?> exampleSentence,
+      Value<String?> romaja,
+      Value<int?> topikLevel,
+      Value<int> isSinoKorean,
+      Value<int> batchim,
+      Value<int> krVerified,
+      Value<String?> pos,
+      Value<String?> krSynonyms,
+      Value<String?> krAntonyms,
+      Value<String?> krExample,
+      Value<int> topikInSource,
       Value<int> rowid,
     });
 
@@ -5246,6 +6641,76 @@ class $$CompoundWordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get topicTag => $composableBuilder(
+    column: $table.topicTag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get synonyms => $composableBuilder(
+    column: $table.synonyms,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get antonyms => $composableBuilder(
+    column: $table.antonyms,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get exampleSentence => $composableBuilder(
+    column: $table.exampleSentence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get romaja => $composableBuilder(
+    column: $table.romaja,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get topikLevel => $composableBuilder(
+    column: $table.topikLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get isSinoKorean => $composableBuilder(
+    column: $table.isSinoKorean,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get batchim => $composableBuilder(
+    column: $table.batchim,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get krVerified => $composableBuilder(
+    column: $table.krVerified,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pos => $composableBuilder(
+    column: $table.pos,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get krSynonyms => $composableBuilder(
+    column: $table.krSynonyms,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get krAntonyms => $composableBuilder(
+    column: $table.krAntonyms,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get krExample => $composableBuilder(
+    column: $table.krExample,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get topikInSource => $composableBuilder(
+    column: $table.topikInSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> wordCharactersRefs(
     Expression<bool> Function($$WordCharactersTableFilterComposer f) f,
   ) {
@@ -5350,6 +6815,76 @@ class $$CompoundWordsTableOrderingComposer
     column: $table.aiGenerated,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get topicTag => $composableBuilder(
+    column: $table.topicTag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get synonyms => $composableBuilder(
+    column: $table.synonyms,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get antonyms => $composableBuilder(
+    column: $table.antonyms,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get exampleSentence => $composableBuilder(
+    column: $table.exampleSentence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get romaja => $composableBuilder(
+    column: $table.romaja,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get topikLevel => $composableBuilder(
+    column: $table.topikLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get isSinoKorean => $composableBuilder(
+    column: $table.isSinoKorean,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get batchim => $composableBuilder(
+    column: $table.batchim,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get krVerified => $composableBuilder(
+    column: $table.krVerified,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pos => $composableBuilder(
+    column: $table.pos,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get krSynonyms => $composableBuilder(
+    column: $table.krSynonyms,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get krAntonyms => $composableBuilder(
+    column: $table.krAntonyms,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get krExample => $composableBuilder(
+    column: $table.krExample,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get topikInSource => $composableBuilder(
+    column: $table.topikInSource,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CompoundWordsTableAnnotationComposer
@@ -5421,6 +6956,62 @@ class $$CompoundWordsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get topicTag =>
+      $composableBuilder(column: $table.topicTag, builder: (column) => column);
+
+  GeneratedColumn<String> get synonyms =>
+      $composableBuilder(column: $table.synonyms, builder: (column) => column);
+
+  GeneratedColumn<String> get antonyms =>
+      $composableBuilder(column: $table.antonyms, builder: (column) => column);
+
+  GeneratedColumn<String> get exampleSentence => $composableBuilder(
+    column: $table.exampleSentence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get romaja =>
+      $composableBuilder(column: $table.romaja, builder: (column) => column);
+
+  GeneratedColumn<int> get topikLevel => $composableBuilder(
+    column: $table.topikLevel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get isSinoKorean => $composableBuilder(
+    column: $table.isSinoKorean,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get batchim =>
+      $composableBuilder(column: $table.batchim, builder: (column) => column);
+
+  GeneratedColumn<int> get krVerified => $composableBuilder(
+    column: $table.krVerified,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pos =>
+      $composableBuilder(column: $table.pos, builder: (column) => column);
+
+  GeneratedColumn<String> get krSynonyms => $composableBuilder(
+    column: $table.krSynonyms,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get krAntonyms => $composableBuilder(
+    column: $table.krAntonyms,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get krExample =>
+      $composableBuilder(column: $table.krExample, builder: (column) => column);
+
+  GeneratedColumn<int> get topikInSource => $composableBuilder(
+    column: $table.topikInSource,
+    builder: (column) => column,
+  );
+
   Expression<T> wordCharactersRefs<T extends Object>(
     Expression<T> Function($$WordCharactersTableAnnotationComposer a) f,
   ) {
@@ -5489,6 +7080,20 @@ class $$CompoundWordsTableTableManager
                 Value<String> originType = const Value.absent(),
                 Value<int> isCognateAnchor = const Value.absent(),
                 Value<int> aiGenerated = const Value.absent(),
+                Value<String?> topicTag = const Value.absent(),
+                Value<String?> synonyms = const Value.absent(),
+                Value<String?> antonyms = const Value.absent(),
+                Value<String?> exampleSentence = const Value.absent(),
+                Value<String?> romaja = const Value.absent(),
+                Value<int?> topikLevel = const Value.absent(),
+                Value<int> isSinoKorean = const Value.absent(),
+                Value<int> batchim = const Value.absent(),
+                Value<int> krVerified = const Value.absent(),
+                Value<String?> pos = const Value.absent(),
+                Value<String?> krSynonyms = const Value.absent(),
+                Value<String?> krAntonyms = const Value.absent(),
+                Value<String?> krExample = const Value.absent(),
+                Value<int> topikInSource = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CompoundWordsCompanion(
                 id: id,
@@ -5505,6 +7110,20 @@ class $$CompoundWordsTableTableManager
                 originType: originType,
                 isCognateAnchor: isCognateAnchor,
                 aiGenerated: aiGenerated,
+                topicTag: topicTag,
+                synonyms: synonyms,
+                antonyms: antonyms,
+                exampleSentence: exampleSentence,
+                romaja: romaja,
+                topikLevel: topikLevel,
+                isSinoKorean: isSinoKorean,
+                batchim: batchim,
+                krVerified: krVerified,
+                pos: pos,
+                krSynonyms: krSynonyms,
+                krAntonyms: krAntonyms,
+                krExample: krExample,
+                topikInSource: topikInSource,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5523,6 +7142,20 @@ class $$CompoundWordsTableTableManager
                 Value<String> originType = const Value.absent(),
                 Value<int> isCognateAnchor = const Value.absent(),
                 Value<int> aiGenerated = const Value.absent(),
+                Value<String?> topicTag = const Value.absent(),
+                Value<String?> synonyms = const Value.absent(),
+                Value<String?> antonyms = const Value.absent(),
+                Value<String?> exampleSentence = const Value.absent(),
+                Value<String?> romaja = const Value.absent(),
+                Value<int?> topikLevel = const Value.absent(),
+                Value<int> isSinoKorean = const Value.absent(),
+                Value<int> batchim = const Value.absent(),
+                Value<int> krVerified = const Value.absent(),
+                Value<String?> pos = const Value.absent(),
+                Value<String?> krSynonyms = const Value.absent(),
+                Value<String?> krAntonyms = const Value.absent(),
+                Value<String?> krExample = const Value.absent(),
+                Value<int> topikInSource = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CompoundWordsCompanion.insert(
                 id: id,
@@ -5539,6 +7172,20 @@ class $$CompoundWordsTableTableManager
                 originType: originType,
                 isCognateAnchor: isCognateAnchor,
                 aiGenerated: aiGenerated,
+                topicTag: topicTag,
+                synonyms: synonyms,
+                antonyms: antonyms,
+                exampleSentence: exampleSentence,
+                romaja: romaja,
+                topikLevel: topikLevel,
+                isSinoKorean: isSinoKorean,
+                batchim: batchim,
+                krVerified: krVerified,
+                pos: pos,
+                krSynonyms: krSynonyms,
+                krAntonyms: krAntonyms,
+                krExample: krExample,
+                topikInSource: topikInSource,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6927,6 +8574,328 @@ typedef $$AiCacheTableProcessedTableManager =
       AiCacheData,
       PrefetchHooks Function()
     >;
+typedef $$KoreanWordsTableCreateCompanionBuilder =
+    KoreanWordsCompanion Function({
+      required String id,
+      required String hangul,
+      Value<String?> romaja,
+      Value<String> englishDef,
+      Value<int?> topikLevel,
+      Value<String?> pos,
+      Value<int?> frequencyRank,
+      Value<String?> niklLevel,
+      Value<String?> synonyms,
+      Value<String?> antonyms,
+      Value<String?> exampleSentence,
+      Value<int> rowid,
+    });
+typedef $$KoreanWordsTableUpdateCompanionBuilder =
+    KoreanWordsCompanion Function({
+      Value<String> id,
+      Value<String> hangul,
+      Value<String?> romaja,
+      Value<String> englishDef,
+      Value<int?> topikLevel,
+      Value<String?> pos,
+      Value<int?> frequencyRank,
+      Value<String?> niklLevel,
+      Value<String?> synonyms,
+      Value<String?> antonyms,
+      Value<String?> exampleSentence,
+      Value<int> rowid,
+    });
+
+class $$KoreanWordsTableFilterComposer
+    extends Composer<_$AppDatabase, $KoreanWordsTable> {
+  $$KoreanWordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hangul => $composableBuilder(
+    column: $table.hangul,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get romaja => $composableBuilder(
+    column: $table.romaja,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get englishDef => $composableBuilder(
+    column: $table.englishDef,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get topikLevel => $composableBuilder(
+    column: $table.topikLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pos => $composableBuilder(
+    column: $table.pos,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get frequencyRank => $composableBuilder(
+    column: $table.frequencyRank,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get niklLevel => $composableBuilder(
+    column: $table.niklLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get synonyms => $composableBuilder(
+    column: $table.synonyms,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get antonyms => $composableBuilder(
+    column: $table.antonyms,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get exampleSentence => $composableBuilder(
+    column: $table.exampleSentence,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$KoreanWordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $KoreanWordsTable> {
+  $$KoreanWordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hangul => $composableBuilder(
+    column: $table.hangul,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get romaja => $composableBuilder(
+    column: $table.romaja,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get englishDef => $composableBuilder(
+    column: $table.englishDef,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get topikLevel => $composableBuilder(
+    column: $table.topikLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pos => $composableBuilder(
+    column: $table.pos,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get frequencyRank => $composableBuilder(
+    column: $table.frequencyRank,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get niklLevel => $composableBuilder(
+    column: $table.niklLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get synonyms => $composableBuilder(
+    column: $table.synonyms,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get antonyms => $composableBuilder(
+    column: $table.antonyms,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get exampleSentence => $composableBuilder(
+    column: $table.exampleSentence,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$KoreanWordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $KoreanWordsTable> {
+  $$KoreanWordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get hangul =>
+      $composableBuilder(column: $table.hangul, builder: (column) => column);
+
+  GeneratedColumn<String> get romaja =>
+      $composableBuilder(column: $table.romaja, builder: (column) => column);
+
+  GeneratedColumn<String> get englishDef => $composableBuilder(
+    column: $table.englishDef,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get topikLevel => $composableBuilder(
+    column: $table.topikLevel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pos =>
+      $composableBuilder(column: $table.pos, builder: (column) => column);
+
+  GeneratedColumn<int> get frequencyRank => $composableBuilder(
+    column: $table.frequencyRank,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get niklLevel =>
+      $composableBuilder(column: $table.niklLevel, builder: (column) => column);
+
+  GeneratedColumn<String> get synonyms =>
+      $composableBuilder(column: $table.synonyms, builder: (column) => column);
+
+  GeneratedColumn<String> get antonyms =>
+      $composableBuilder(column: $table.antonyms, builder: (column) => column);
+
+  GeneratedColumn<String> get exampleSentence => $composableBuilder(
+    column: $table.exampleSentence,
+    builder: (column) => column,
+  );
+}
+
+class $$KoreanWordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $KoreanWordsTable,
+          KoreanWord,
+          $$KoreanWordsTableFilterComposer,
+          $$KoreanWordsTableOrderingComposer,
+          $$KoreanWordsTableAnnotationComposer,
+          $$KoreanWordsTableCreateCompanionBuilder,
+          $$KoreanWordsTableUpdateCompanionBuilder,
+          (
+            KoreanWord,
+            BaseReferences<_$AppDatabase, $KoreanWordsTable, KoreanWord>,
+          ),
+          KoreanWord,
+          PrefetchHooks Function()
+        > {
+  $$KoreanWordsTableTableManager(_$AppDatabase db, $KoreanWordsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$KoreanWordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$KoreanWordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$KoreanWordsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> hangul = const Value.absent(),
+                Value<String?> romaja = const Value.absent(),
+                Value<String> englishDef = const Value.absent(),
+                Value<int?> topikLevel = const Value.absent(),
+                Value<String?> pos = const Value.absent(),
+                Value<int?> frequencyRank = const Value.absent(),
+                Value<String?> niklLevel = const Value.absent(),
+                Value<String?> synonyms = const Value.absent(),
+                Value<String?> antonyms = const Value.absent(),
+                Value<String?> exampleSentence = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KoreanWordsCompanion(
+                id: id,
+                hangul: hangul,
+                romaja: romaja,
+                englishDef: englishDef,
+                topikLevel: topikLevel,
+                pos: pos,
+                frequencyRank: frequencyRank,
+                niklLevel: niklLevel,
+                synonyms: synonyms,
+                antonyms: antonyms,
+                exampleSentence: exampleSentence,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String hangul,
+                Value<String?> romaja = const Value.absent(),
+                Value<String> englishDef = const Value.absent(),
+                Value<int?> topikLevel = const Value.absent(),
+                Value<String?> pos = const Value.absent(),
+                Value<int?> frequencyRank = const Value.absent(),
+                Value<String?> niklLevel = const Value.absent(),
+                Value<String?> synonyms = const Value.absent(),
+                Value<String?> antonyms = const Value.absent(),
+                Value<String?> exampleSentence = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KoreanWordsCompanion.insert(
+                id: id,
+                hangul: hangul,
+                romaja: romaja,
+                englishDef: englishDef,
+                topikLevel: topikLevel,
+                pos: pos,
+                frequencyRank: frequencyRank,
+                niklLevel: niklLevel,
+                synonyms: synonyms,
+                antonyms: antonyms,
+                exampleSentence: exampleSentence,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KoreanWordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $KoreanWordsTable,
+      KoreanWord,
+      $$KoreanWordsTableFilterComposer,
+      $$KoreanWordsTableOrderingComposer,
+      $$KoreanWordsTableAnnotationComposer,
+      $$KoreanWordsTableCreateCompanionBuilder,
+      $$KoreanWordsTableUpdateCompanionBuilder,
+      (
+        KoreanWord,
+        BaseReferences<_$AppDatabase, $KoreanWordsTable, KoreanWord>,
+      ),
+      KoreanWord,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6949,4 +8918,6 @@ class $AppDatabaseManager {
       $$ReadingHistoryTableTableManager(_db, _db.readingHistory);
   $$AiCacheTableTableManager get aiCache =>
       $$AiCacheTableTableManager(_db, _db.aiCache);
+  $$KoreanWordsTableTableManager get koreanWords =>
+      $$KoreanWordsTableTableManager(_db, _db.koreanWords);
 }

@@ -90,6 +90,14 @@ class CharacterDao {
     originType: row.read<String>('origin_type'),
     isCognateAnchor: row.read<int>('is_cognate_anchor'),
     aiGenerated: row.read<int>('ai_generated'),
+    isSinoKorean: 0,
+    batchim: 0,
+    krVerified: 0,
+    pos: null,
+    krSynonyms: null,
+    krAntonyms: null,
+    krExample: null,
+    topikInSource: 0,
   );
 
   Future<void> updateEtymologyStory(String characterId, String story) async {

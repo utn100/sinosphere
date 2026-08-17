@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database.dart';
 import '../../core/services/database_provider.dart';
+import '../../core/services/lang_mode_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../dict_card/dict_card_provider.dart';
+import '../dict_card/widgets/word_enrichment.dart' show copyToClipboard, WordEnrichmentSection;
+import '../dict_card/widgets/bookmark_button.dart';
+import '../graph/graph_provider.dart' show koreanGraphSearchProvider;
 import '../shell/app_shell.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
@@ -258,22 +262,33 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
                   itemBuilder: (_, i) {
                     final word = visible[i];
                     return InkWell(
-                      onTap: () => showCollectionWordSheet(context, ref,
-                        display: word.simplified,
-                        hanViet: word.hanViet,
-                        pinyin: word.pinyin,
-                        englishDef: word.englishDef,
-                        hskLabel: widget.hskLevel == 7
-                            ? 'HSK 7-9' : 'HSK ${widget.hskLevel}',
-                      ),
+                      onTap: () {
+                        final isKorean = ref.read(langModeProvider) == LangMode.korean;
+                        showCollectionWordSheet(context, ref,
+                          display:   isKorean && word.hangul != null ? word.hangul! : word.simplified,
+                          simplified: word.simplified,
+                          hanViet:   word.hanViet,
+                          pinyin:    word.pinyin,
+                          englishDef: word.englishDef,
+                          hskLabel:  isKorean
+                              ? (word.topikLevel != null ? 'TOPIK ${word.topikLevel}' : null)
+                              : (widget.hskLevel == 7 ? 'HSK 7-9' : 'HSK ${widget.hskLevel}'),
+                          wordId:    word.id,
+                          hangul:    isKorean ? word.hangul : null,
+                          romaja:    isKorean ? word.romaja : null,
+                        );
+                      },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 10),
-                        child: Row(children: [
+                        child: Consumer(builder: (ctx, ref, _) {
+                          final isKorean = ref.watch(langModeProvider) == LangMode.korean;
+                          return Row(children: [
                           SizedBox(
                             width: 56,
-                            child: Text(word.simplified,
-                                style: TextStyle(color: c.text, fontSize: 20,
+                            child: Text(
+                              isKorean && word.hangul != null ? word.hangul! : word.simplified,
+                              style: TextStyle(color: c.text, fontSize: 20,
                                     fontWeight: FontWeight.w700)),
                           ),
                           const SizedBox(width: 12),
@@ -281,14 +296,21 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                             Row(children: [
-                              Text(word.hanViet,
-                                  style: const TextStyle(
-                                      color: AppTheme.hanviet, fontSize: 12,
-                                      fontWeight: FontWeight.w800)),
+                              if (isKorean && word.romaja != null)
+                                Text(word.romaja!,
+                                    style: const TextStyle(
+                                        color: Color(0xFF818CF8), fontSize: 12,
+                                        fontWeight: FontWeight.w700))
+                              else
+                                Text(word.hanViet,
+                                    style: const TextStyle(
+                                        color: AppTheme.hanviet, fontSize: 12,
+                                        fontWeight: FontWeight.w800)),
                               const SizedBox(width: 8),
-                              Text(word.pinyin,
-                                  style: const TextStyle(
-                                      color: Color(0xFF38BDF8), fontSize: 12)),
+                              if (!isKorean)
+                                Text(word.pinyin,
+                                    style: const TextStyle(
+                                        color: Color(0xFF38BDF8), fontSize: 12)),
                             ]),
                             Text(
                               word.englishDef.length > 50
@@ -310,7 +332,8 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
                                   color: AppTheme.semantic, size: 16),
                             ),
                           ),
-                        ]),
+                        ]);
+                        }),
                       ),
                     );
                   },
@@ -372,11 +395,14 @@ void showCollectionWordSheet(BuildContext context, WidgetRef ref, {
   required String pinyin,
   required String englishDef,
   String? hskLabel,
+  String? wordId,
+  String? hangul,
+  String? romaja,
+  String? simplified,
 }) {
   showModalBottomSheet(
     context: context, isScrollControlled: true, useSafeArea: true,
     builder: (ctx) {
-      // Capture NavigatorState before any async gap to avoid use-after-dispose
       final nav = Navigator.of(context);
       return DraggableScrollableSheet(
       initialChildSize: 0.45, minChildSize: 0.3, maxChildSize: 0.85,
@@ -384,13 +410,25 @@ void showCollectionWordSheet(BuildContext context, WidgetRef ref, {
       builder: (_, ctrl) => _CollectionWordSheet(
         display: display, hanViet: hanViet, pinyin: pinyin,
         englishDef: englishDef, hskLabel: hskLabel,
+        wordId: wordId, hangul: hangul, romaja: romaja,
+        simplified: simplified,
         scrollController: ctrl,
         onCharTap: (ch) {
           Navigator.pop(ctx);
+          ref.read(langModeProvider.notifier).set(LangMode.chinese);
           ref.read(activeSymbolProvider.notifier).set(ch);
           ref.read(tabIndexProvider.notifier).set(0);
           nav.popUntil((route) => route.isFirst);
         },
+        onViewZhGraph: (hangul != null && simplified != null && simplified != hangul)
+          ? () {
+              Navigator.pop(ctx);
+              ref.read(koreanGraphSearchProvider.notifier)
+                  .set((simplified: simplified!, hangul: hangul!));
+              ref.read(tabIndexProvider.notifier).set(1);
+              nav.popUntil((route) => route.isFirst);
+            }
+          : null,
       ),
     );
     },
@@ -400,19 +438,27 @@ void showCollectionWordSheet(BuildContext context, WidgetRef ref, {
 class _CollectionWordSheet extends StatelessWidget {
   final String display, hanViet, pinyin, englishDef;
   final String? hskLabel;
+  final String? wordId;
+  final String? hangul;
+  final String? romaja;
+  final String? simplified;
+  final VoidCallback? onViewZhGraph;
   final ScrollController scrollController;
   final void Function(String ch) onCharTap;
 
   const _CollectionWordSheet({
     required this.display, required this.hanViet, required this.pinyin,
     required this.englishDef, required this.scrollController,
-    required this.onCharTap, this.hskLabel,
+    required this.onCharTap, this.hskLabel, this.wordId,
+    this.hangul, this.romaja, this.simplified, this.onViewZhGraph,
   });
 
   @override
   Widget build(BuildContext context) {
-    final c     = context.colors;
-    final chars = display.split('');
+    final c      = context.colors;
+    final chars  = display.split('');
+    final isKr   = hangul != null;
+    final krColor = const Color(0xFF818CF8);
 
     return ListView(
       controller: scrollController,
@@ -422,45 +468,122 @@ class _CollectionWordSheet extends StatelessWidget {
             decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)))),
         const SizedBox(height: 20),
 
-        // Tappable character row
-        Wrap(
-          spacing: 4, runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.end,
-          children: chars.map((ch) => GestureDetector(
-            onTap: () => onCharTap(ch),
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8), color: Colors.transparent),
-              child: Text(ch, style: TextStyle(
-                  color: c.text, fontSize: 48, fontWeight: FontWeight.w700, height: 1.1)),
-            ),
-          )).toList(),
-        ),
-        const SizedBox(height: 12),
-
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic, children: [
-          Flexible(child: Text(hanViet,
-              style: const TextStyle(color: AppTheme.hanviet, fontSize: 20,
-                  fontWeight: FontWeight.w900))),
-          const SizedBox(width: 12),
-          Flexible(child: Text(pinyin,
-              style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 14))),
-        ]),
+        // Hero: hangul (large) or tappable Chinese chars
+        if (isKr) ...[
+          Text(hangul!,
+              style: TextStyle(color: c.text, fontSize: 48,
+                  fontWeight: FontWeight.w700, height: 1.1)),
+          const SizedBox(height: 6),
+          if (romaja != null)
+            Text(romaja!,
+                style: TextStyle(color: krColor, fontSize: 18,
+                    fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          // Hanja row — only for Sino-Korean words (simplified differs from hangul)
+          if (simplified != null && simplified != hangul) Row(children: [
+            Text('Hanja  ', style: TextStyle(color: c.textMuted, fontSize: 11)),
+            ...(simplified ?? display).split('').map((ch) => GestureDetector(
+              onTap: () => onCharTap(ch),
+              child: Container(
+                margin: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.hanviet.withAlpha(30),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.hanviet.withAlpha(80)),
+                ),
+                child: Text(ch, style: const TextStyle(
+                    color: AppTheme.hanviet, fontSize: 22, fontWeight: FontWeight.w700)),
+              ),
+            )),
+          ]),
+        ] else ...[
+          Wrap(
+            spacing: 4, runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.end,
+            children: chars.map((ch) => GestureDetector(
+              onTap: () => onCharTap(ch),
+              onLongPress: () => copyToClipboard(context, display),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8), color: Colors.transparent),
+                child: Text(ch, style: TextStyle(
+                    color: c.text, fontSize: 48, fontWeight: FontWeight.w700, height: 1.1)),
+              ),
+            )).toList(),
+          ),
+          const SizedBox(height: 12),
+          Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic, children: [
+            Flexible(child: Text(hanViet,
+                style: const TextStyle(color: AppTheme.hanviet, fontSize: 20,
+                    fontWeight: FontWeight.w900))),
+            const SizedBox(width: 12),
+            Flexible(child: Text(pinyin,
+                style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 14))),
+          ]),
+        ],
         const SizedBox(height: 8),
         Text(englishDef, style: TextStyle(color: c.text, fontSize: 14, height: 1.5)),
         if (hskLabel != null) ...[
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: AppTheme.hanviet.withAlpha(38),
+            decoration: BoxDecoration(
+                color: (isKr ? krColor : AppTheme.hanviet).withAlpha(38),
                 borderRadius: BorderRadius.circular(8)),
             child: Text(hskLabel!,
-                style: const TextStyle(color: AppTheme.hanviet, fontSize: 12,
-                    fontWeight: FontWeight.w700)),
+                style: TextStyle(
+                    color: isKr ? krColor : AppTheme.hanviet,
+                    fontSize: 12, fontWeight: FontWeight.w700)),
           ),
         ],
+
+        if (wordId != null) ...[
+          const SizedBox(height: 10),
+          BookmarkButton(wordId: wordId!),
+        ],
+        if (isKr && onViewZhGraph != null) ...[
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: onViewZhGraph,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: krColor.withAlpha(15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: krColor.withAlpha(51), width: 0.5),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                      color: krColor.withAlpha(38),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.hub_outlined, color: krColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Explore Hanja Graph',
+                      style: TextStyle(color: krColor, fontSize: 14,
+                          fontWeight: FontWeight.w700)),
+                  Text('Open Pivot network',
+                      style: TextStyle(color: c.textMuted, fontSize: 11)),
+                ])),
+                Icon(Icons.chevron_right, color: krColor, size: 20),
+              ]),
+            ),
+          ),
+        ],
+        if (wordId != null && !isKr)
+          WordEnrichmentSection(
+            wordId:     wordId!,
+            simplified: display,
+            pinyin:     pinyin,
+            englishDef: englishDef,
+          ),
+
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -502,11 +625,20 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
   List<CompoundWord> _words = [];
   Set<String> _memorized = {};
   bool _loading = true;
+  LangMode? _lastLangMode;
 
   @override
   void initState() {
     super.initState();
     _loadPage(0);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final mode = ref.read(langModeProvider);
+    if (_lastLangMode != null && _lastLangMode != mode) _loadPage(0);
+    _lastLangMode = mode;
   }
 
   @override
@@ -518,11 +650,14 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
   Future<void> _loadPage(int page) async {
     setState(() => _loading = true);
     final db = ref.read(databaseProvider);
-    final total     = await db.collectionDao.getTopicWordCount(widget.topicId);
+    final isKorean = ref.read(langModeProvider) == LangMode.korean;
+    final total     = await db.collectionDao.getTopicWordCount(widget.topicId, krOnly: isKorean);
     final words     = await db.collectionDao.getTopicWords(
-        widget.topicId, offset: page * _pageSize, limit: _pageSize);
-    // Reuse memorized storage keyed by a pseudo-level — use -1 * topicId.hashCode
-    final memorized = <String>{};
+        widget.topicId, offset: page * _pageSize, limit: _pageSize, krOnly: isKorean);
+    // Load memorized state from DB (shared 'memorized' collection)
+    final allMemorized = await db.collectionDao.getAllMemorizedWordIds();
+    // Store full set (not page-scoped) so marks persist across page navigation
+    final memorized = allMemorized;
     if (!mounted) return;
     setState(() {
       _page      = page;
@@ -538,6 +673,7 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
   }
 
   Future<void> _toggleMemorized(String wordId) async {
+    await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -565,7 +701,11 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
         actions: [
           if (_memorized.isNotEmpty)
             TextButton.icon(
-              onPressed: () => setState(() => _memorized = {}),
+              onPressed: () async {
+                await ref.read(databaseProvider).collectionDao
+                    .resetMemorizedForWords(_memorized.toList());
+                setState(() => _memorized = {});
+              },
               icon: const Icon(Icons.refresh, size: 16, color: AppTheme.hanviet),
               label: Text('Reset (${_memorized.length})',
                   style: const TextStyle(color: AppTheme.hanviet, fontSize: 12)),
@@ -606,23 +746,35 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
                           itemBuilder: (_, i) {
                             final word = visible[i];
                             return InkWell(
-                              onTap: () => showCollectionWordSheet(context, ref,
-                                display: word.simplified,
-                                hanViet: word.hanViet,
-                                pinyin: word.pinyin,
-                                englishDef: word.englishDef,
-                                hskLabel: word.hskLevel != null
-                                    ? 'HSK ${word.hskLevel == 7 ? '7-9' : word.hskLevel}'
-                                    : null,
-                              ),
+                              onTap: () {
+                                final isKorean = ref.read(langModeProvider) == LangMode.korean;
+                                showCollectionWordSheet(context, ref,
+                                  display:    isKorean && word.hangul != null ? word.hangul! : word.simplified,
+                                  simplified: word.simplified,
+                                  hanViet:    word.hanViet,
+                                  pinyin:     word.pinyin,
+                                  englishDef: word.englishDef,
+                                  hskLabel:   isKorean
+                                      ? (word.topikLevel != null ? 'TOPIK ${word.topikLevel}' : null)
+                                      : (word.hskLevel != null
+                                          ? 'HSK ${word.hskLevel == 7 ? '7-9' : word.hskLevel}'
+                                          : null),
+                                  wordId:  word.id,
+                                  hangul:  isKorean ? word.hangul : null,
+                                  romaja:  isKorean ? word.romaja : null,
+                                );
+                              },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 10),
-                                child: Row(children: [
+                                child: Consumer(builder: (ctx, ref, _) {
+                                  final isKorean = ref.watch(langModeProvider) == LangMode.korean;
+                                  return Row(children: [
                                   SizedBox(
                                     width: 56,
-                                    child: Text(word.simplified,
-                                        style: TextStyle(color: c.text, fontSize: 20,
+                                    child: Text(
+                                      isKorean && word.hangul != null ? word.hangul! : word.simplified,
+                                      style: TextStyle(color: c.text, fontSize: 20,
                                             fontWeight: FontWeight.w700)),
                                   ),
                                   const SizedBox(width: 12),
@@ -630,13 +782,19 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                     Row(children: [
-                                      Text(word.hanViet,
-                                          style: const TextStyle(color: AppTheme.hanviet,
-                                              fontSize: 12, fontWeight: FontWeight.w800)),
+                                      if (isKorean && word.romaja != null)
+                                        Text(word.romaja!,
+                                            style: const TextStyle(color: Color(0xFF818CF8),
+                                                fontSize: 12, fontWeight: FontWeight.w700))
+                                      else
+                                        Text(word.hanViet,
+                                            style: const TextStyle(color: AppTheme.hanviet,
+                                                fontSize: 12, fontWeight: FontWeight.w800)),
                                       const SizedBox(width: 8),
-                                      Text(word.pinyin,
-                                          style: const TextStyle(
-                                              color: Color(0xFF38BDF8), fontSize: 12)),
+                                      if (!isKorean)
+                                        Text(word.pinyin,
+                                            style: const TextStyle(
+                                                color: Color(0xFF38BDF8), fontSize: 12)),
                                     ]),
                                     Text(
                                       word.englishDef.length > 50
@@ -657,7 +815,8 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
                                           color: AppTheme.semantic, size: 16),
                                     ),
                                   ),
-                                ]),
+                                ]);
+                                }),
                               ),
                             );
                           },
@@ -704,6 +863,280 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
                   ),
               ]),
             ),
+    );
+  }
+}
+
+// ── TOPIK Detail Screen ───────────────────────────────────────────────────────
+
+class TopikDetailScreen extends ConsumerStatefulWidget {
+  final List<int> topikLevels; // e.g. [1] for A, [3] for B, [5,6] for C
+  final String band;           // 'A', 'B', 'C'
+  final String desc;
+
+  const TopikDetailScreen({
+    super.key,
+    required this.topikLevels,
+    required this.band,
+    required this.desc,
+  });
+
+  // Convenience getter for single-level compatibility
+  int get topikLevel => topikLevels.first;
+
+  @override
+  ConsumerState<TopikDetailScreen> createState() => _TopikDetailScreenState();
+}
+
+class _TopikDetailScreenState extends ConsumerState<TopikDetailScreen> {
+  static const _pageSize = 50;
+  static const _krColor  = Color(0xFF818CF8);
+
+  List<CompoundWord> _words    = [];
+  Set<String>        _memorized = {};
+  int     _total   = 0;
+  int     _page    = 0;
+  bool    _loading = true;
+  String? _error;
+  final _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPage(0);
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPage(int page) async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final db    = ref.read(databaseProvider);
+      final levels = widget.topikLevels;
+      final total = levels.length == 1
+          ? await db.collectionDao.getTopikWordCount(levels.first)
+          : await db.collectionDao.getTopikWordCountMulti(levels);
+      final words = levels.length == 1
+          ? await db.collectionDao.getTopikWords(levels.first, offset: page * _pageSize, limit: _pageSize)
+          : await db.collectionDao.getTopikWordsMulti(levels, offset: page * _pageSize, limit: _pageSize);
+      final allMem = await db.collectionDao.getAllMemorizedWordIds();
+      if (!mounted) return;
+      setState(() {
+        _page      = page;
+        _total     = total;
+        _words     = words;
+        _memorized = allMem;
+        _loading   = false;
+      });
+    } catch (e, st) {
+      debugPrint('TopikDetailScreen._loadPage error: $e\n$st');
+      if (mounted) setState(() { _loading = false; _error = e.toString(); });
+    }
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(0,
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
+  }
+
+  Future<void> _toggleMemorized(String wordId) async {
+    await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
+    setState(() {
+      if (_memorized.contains(wordId)) {
+        _memorized = Set.from(_memorized)..remove(wordId);
+      } else {
+        _memorized = Set.from(_memorized)..add(wordId);
+      }
+    });
+  }
+
+  Future<void> _resetMemorized() async {
+    for (final level in widget.topikLevels) {
+      await ref.read(databaseProvider).collectionDao
+          .resetMemorizedByTopik(level);
+    }
+    setState(() => _memorized = {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c          = context.colors;
+    final pageCount  = (_total / _pageSize).ceil();
+    final visible    = _words.where((w) => !_memorized.contains(w.id)).toList();
+
+    return Scaffold(
+      backgroundColor: c.bg,
+      appBar: AppBar(
+        title: Text('TOPIK ${widget.band} · ${widget.desc}',
+            style: TextStyle(color: c.text, fontWeight: FontWeight.w800)),
+        backgroundColor: c.surf,
+        iconTheme: IconThemeData(color: c.text),
+        elevation: 0,
+        actions: [
+          if (_memorized.isNotEmpty)
+            TextButton.icon(
+              onPressed: _resetMemorized,
+              icon: const Icon(Icons.refresh, size: 16, color: _krColor),
+              label: Text('Reset (${_memorized.length})',
+                  style: const TextStyle(color: _krColor, fontWeight: FontWeight.w700)),
+            ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(
+                strokeWidth: 2, color: _krColor))
+            : _error != null
+            ? Center(child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                  const SizedBox(height: 12),
+                  Text('Load error', style: TextStyle(color: c.text,
+                      fontWeight: FontWeight.w700, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Text(_error!, style: TextStyle(color: c.textMuted, fontSize: 12),
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => _loadPage(0),
+                    child: const Text('Retry'),
+                  ),
+                ]),
+              ))
+            : Column(children: [
+                // Progress bar
+                if (_total > 0) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        Text('TOPIK ${widget.band} progress',
+                            style: TextStyle(color: c.textMuted, fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                        Text('${_memorized.length} / $_total',
+                            style: const TextStyle(color: _krColor,
+                                fontSize: 11, fontWeight: FontWeight.w700)),
+                      ]),
+                      const SizedBox(height: 4),
+                      LinearProgressIndicator(
+                        value: _total > 0 ? _memorized.length / _total : 0,
+                        backgroundColor: c.border,
+                        color: _krColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ]),
+                  ),
+                ],
+                Expanded(
+                  child: visible.isEmpty
+                      ? Center(child: Text(
+                          _total == 0 ? 'No words found' : 'All words memorized! 🎉',
+                          style: TextStyle(color: c.textMuted)))
+                      : ListView.separated(
+                          controller: _scrollCtrl,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, _) =>
+                              Divider(height: 0.5, thickness: 0.5, color: c.border, indent: 16),
+                          itemBuilder: (_, i) {
+                            final word = visible[i];
+                            return InkWell(
+                              onTap: () => showCollectionWordSheet(context, ref,
+                                display:    word.hangul ?? word.simplified,
+                                simplified: word.simplified,
+                                hanViet:    word.hanViet,
+                                pinyin:     word.pinyin,
+                                englishDef: word.englishDef,
+                                hskLabel:   'TOPIK ${widget.band}',
+                                wordId:     word.id,
+                                hangul:     word.hangul,
+                                romaja:     word.romaja,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 10),
+                                child: Row(children: [
+                                  SizedBox(
+                                    width: 64,
+                                    child: Text(word.hangul ?? word.simplified,
+                                        style: TextStyle(color: c.text, fontSize: 20,
+                                            fontWeight: FontWeight.w700)),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                    if (word.romaja != null)
+                                      Text(word.romaja!,
+                                          style: const TextStyle(color: _krColor,
+                                              fontSize: 12, fontWeight: FontWeight.w700)),
+                                    Text(word.englishDef.length > 55
+                                        ? '${word.englishDef.substring(0, 55)}…'
+                                        : word.englishDef,
+                                        style: TextStyle(color: c.textSub, fontSize: 11)),
+                                  ])),
+                                  Text(word.simplified,
+                                      style: TextStyle(color: c.textMuted, fontSize: 12)),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () => _toggleMemorized(word.id),
+                                    child: Container(
+                                      width: 32, height: 32,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.semantic.withAlpha(26),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.check,
+                                          color: AppTheme.semantic, size: 16),
+                                    ),
+                                  ),
+                                ]),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                // Page navigation
+                if (pageCount > 1)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: c.surf,
+                      border: Border(top: BorderSide(color: c.border, width: 0.5)),
+                    ),
+                    child: Row(children: [
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: _page > 0 ? _krColor : c.border),
+                          foregroundColor: _page > 0 ? _krColor : c.textMuted,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: _page > 0 ? () => _loadPage(_page - 1) : null,
+                        child: const Text('← Prev'),
+                      ),
+                      Expanded(child: Text('Page ${_page + 1} of $pageCount',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: c.textMuted, fontSize: 12))),
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: _page < pageCount - 1 ? _krColor : c.border),
+                          foregroundColor: _page < pageCount - 1 ? _krColor : c.textMuted,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: _page < pageCount - 1 ? () => _loadPage(_page + 1) : null,
+                        child: const Text('Next →'),
+                      ),
+                    ]),
+                  ),
+              ]),
+      ),
     );
   }
 }

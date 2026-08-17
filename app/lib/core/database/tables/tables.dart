@@ -59,6 +59,45 @@ class CompoundWords extends Table {
   TextColumn get originType       => text().withDefault(const Constant('sino_chinese'))();
   IntColumn  get isCognateAnchor  => integer().withDefault(const Constant(0))();
   IntColumn  get aiGenerated      => integer().withDefault(const Constant(0))();
+  // v2: topic tagging
+  TextColumn get topicTag         => text().nullable()();
+  // v3: word enrichment (AI-generated)
+  TextColumn get synonyms         => text().nullable()();
+  TextColumn get antonyms         => text().nullable()();
+  TextColumn get exampleSentence  => text().nullable()();
+  // v4: Korean mode
+  TextColumn get romaja           => text().nullable()();
+  IntColumn  get topikLevel       => integer().nullable()();
+  IntColumn  get isSinoKorean     => integer().withDefault(const Constant(0))();
+  IntColumn  get batchim          => integer().withDefault(const Constant(0))();
+  // v5: Korean vocabulary verification
+  IntColumn  get krVerified       => integer().withDefault(const Constant(0))();
+  TextColumn get pos              => text().nullable()();
+  // v5 enrichment
+  TextColumn get krSynonyms       => text().nullable()();
+  TextColumn get krAntonyms       => text().nullable()();
+  TextColumn get krExample        => text().nullable()();
+  // v8: TOPIK source verification (1 = word explicitly in NIKL/TOPIK TSV)
+  IntColumn  get topikInSource    => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+// korean_words — native Korean words (no hanja) from NIKL/TOPIK sources
+class KoreanWords extends Table {
+  TextColumn get id             => text()();
+  TextColumn get hangul         => text()();
+  TextColumn get romaja         => text().nullable()();
+  TextColumn get englishDef     => text().withDefault(const Constant(''))();
+  IntColumn  get topikLevel     => integer().nullable()();
+  TextColumn get pos            => text().nullable()();
+  IntColumn  get frequencyRank  => integer().nullable()();
+  TextColumn get niklLevel      => text().nullable()();
+  // v5 enrichment from KDict API
+  TextColumn get synonyms       => text().nullable()();
+  TextColumn get antonyms       => text().nullable()();
+  TextColumn get exampleSentence => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

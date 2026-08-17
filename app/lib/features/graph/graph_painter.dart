@@ -128,10 +128,10 @@ class GraphPainter extends CustomPainter {
 
   Color _nodeColor(GraphNode node) {
     switch (node.type) {
-      case GraphNodeType.focal:    return AppTheme.hanviet;
-      case GraphNodeType.root:     return AppTheme.sky;      // radical root — distinct sky blue
+      case GraphNodeType.focal:    return AppTheme.coral;    // brand primary
+      case GraphNodeType.root:     return AppTheme.sky;
       case GraphNodeType.sibling:  return AppTheme.sky;
-      case GraphNodeType.compound: return AppTheme.hanviet;
+      case GraphNodeType.compound: return AppTheme.hanviet;  // amber — ZH compounds
       case GraphNodeType.showMore: return AppTheme.textSecond;
       case GraphNodeType.component:
         switch (node.componentType) {

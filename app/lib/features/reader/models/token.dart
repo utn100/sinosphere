@@ -9,6 +9,11 @@ class Token {
   final String? wordId;
   final String? charId;
 
+  // Korean mode fields
+  final String? romaja;
+  final bool isSinoKorean;
+  final String? simplified; // hanja/Chinese form for Sino-Korean tokens
+
   const Token({
     required this.text,
     this.hanViet = '',
@@ -19,5 +24,8 @@ class Token {
     this.isKnown = false,
     this.wordId,
     this.charId,
+    this.romaja,
+    this.isSinoKorean = false,
+    this.simplified,
   });
 }

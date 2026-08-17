@@ -1,10 +1,11 @@
-# Sinosphere Rosetta — Project Context & Build Status
+# Sinosphere — Project Context & Build Status
 
 **App:** Vietnamese-English bilingual dictionary app for Vietnamese learners of Mandarin Chinese  
 **Core concept:** Every Chinese character has a Hán-Việt (Sino-Vietnamese) reading — cognate with the Mandarin. The app exploits this to make Chinese vocabulary immediately memorable for Vietnamese speakers. A character like 晨 (chén) maps to THẦN in Vietnamese; the component analysis (chiết tự) explains the etymology as a story in Vietnamese.  
 **Stack:** Flutter 3.47.0 · Dart 3.13 · Drift SQLite · Riverpod v3 · Multi-provider AI  
 **Package ID:** `com.sinosphere.sinosphere_rosetta`  
-**Last updated:** 2026-08-13
+**GitHub:** https://github.com/utn100/sinosphere (public)  
+**Last updated:** 2026-08-14 (enhancements: OCR, topic collections, word enrichment)
 
 ---
 
@@ -13,17 +14,14 @@
 ```
 sinophere/
 ├── app/                        ← Flutter project
-│   ├── assets/sinosphere.db    ← 82 MB SQLite DB (bundled asset)
-│   ├── lib/                    ← 20 Dart source files
+│   ├── assets/sinosphere.db    ← 83 MB SQLite DB (bundled asset, not committed)
+│   ├── lib/                    ← Dart source files
 │   └── pubspec.yaml
 ├── data/
 │   ├── db/sinosphere.db        ← master DB (copy to app/assets/ before building)
-│   └── raw/
-│       ├── unihan/             ← Unihan_Readings.txt, Unihan_RadicalStrokeCounts.txt
-│       └── Unihan.zip          ← full Unihan data (kTotalStrokes in IRGSources.txt)
-├── pipeline/                   ← 6 Python scripts
+│   └── raw/                    ← source data files (not committed)
+├── pipeline/                   ← 8 Python scripts
 ├── sinosphere_prototype.html   ← interactive HTML prototype (full UX)
-├── sinosphere_firstscreen.html ← first-screen mockup
 ├── sinosphere_rosetta_prd.md   ← Product Requirements Document
 └── BUILD_STATUS.md             ← this file
 ```
@@ -35,7 +33,6 @@ sinophere/
 ### Pipeline scripts (run in order for a clean build)
 
 ```bash
-cd sinophere/
 python3 pipeline/build_db.py          # ~10 min — builds sinosphere.db from scratch
 python3 pipeline/patch_hanviet.py     # ~2 min — backfills HV readings
 python3 pipeline/patch_compounds.py   # ~1 min — recomputes compound HV from patched chars
@@ -44,39 +41,29 @@ python3 pipeline/validate_db.py       # ~10 sec — 63 assertions, expect 0 erro
 python3 pipeline/generate_etymology.py --resume  # ongoing — AI story generation
 ```
 
-### Data sources used
+### Data sources
 
-| Source | Path / URL | Used for |
-|---|---|---|
-| CC-CEDICT | `data/raw/cedict_ts.u8` | English defs, pinyin, traditional variants |
-| MakeMeHanzi | `data/raw/dictionary.txt` | Component decomposition, component type (semantic/phonetic/iconic) |
-| Unihan | `data/raw/Unihan.zip` + `data/raw/unihan/` | HV readings (`kVietnamese`), KR hangul (`kHangul`), JP onyomi (`kJapaneseOn`), stroke count (`kTotalStrokes` from IRGSources.txt) |
-| HSK 3.0 | `data/raw/hsk/` | HSK level tags 1-7 (level 7 = HSK 7-9) |
-| Thiều Chửu + Trần Văn Chánh | `data/raw/thieuchuu.json` | Supplementary HV readings |
-| HanziStoriesViet | `data/raw/hanzistoriesviet.json` | Additional HV readings |
-| Subtlex-CH | `data/raw/subtlex_ch.txt` | Word frequency ranks |
-| Claude Haiku 4.5 | API (Anthropic / SAP Hyperspace) | Vietnamese chiết tự etymology stories |
+| Source | Used for |
+|---|---|
+| CC-CEDICT | English defs, pinyin, traditional variants |
+| MakeMeHanzi | Component decomposition, component type (semantic/phonetic/iconic) |
+| Unihan | HV readings, JP onyomi, stroke count |
+| HSK 3.0 | HSK level tags 1-7 |
+| Thiều Chửu + Trần Văn Chánh | Supplementary HV readings |
+| Subtlex-CH | Word frequency ranks |
+| Claude Haiku 4.5 | Vietnamese chiết tự etymology stories |
 
 ### Etymology story generation
 
-Stories are 2-3 sentence Vietnamese narratives explaining a character's meaning through its components. Generated via `generate_etymology.py`:
-
 ```bash
-# Run with direct Anthropic API key
+# Direct Anthropic API
 ANTHROPIC_API_KEY=sk-ant-... python3 pipeline/generate_etymology.py --resume
 
-# Run via SAP Hyperspace proxy
-HYPERSPACE_BASE_URL=https://api.hyperspace.tools.sap/llm-proxy/anthropic \
-HYPERSPACE_API_KEY=<your-api-key> \
-python3 pipeline/generate_etymology.py --resume
-
 # Other options
---char 晨          # single character
---limit 100        # process N characters then stop
---priority         # HSK 1 first, then 2, etc.
+--char 晨       # single character
+--limit 100     # process N then stop
+--priority      # HSK 1 first, then 2, etc.
 ```
-
-`--resume` is on by default — skips characters that already have a story. The Batches API is not available on Hyperspace; the script auto-falls back to individual calls.
 
 ### Database stats (as of 2026-08-13)
 
@@ -89,20 +76,17 @@ python3 pipeline/generate_etymology.py --resume
 | With stroke count | 9,565 (100%) |
 | HSK-tagged words | 10,957 |
 | High HV-resonance words | 88,997 |
-| With etymology story | 2,707 |
-| DB size | 82 MB |
+| With etymology story | ~6,500 (68%) |
+| DB size | 83 MB |
 
 ### Etymology coverage by HSK level
 
 | Level | Coverage |
 |---|---|
-| HSK 1 | 289/289 (100%) |
-| HSK 2 | 491/491 (100%) |
-| HSK 3 | 648/648 (100%) |
-| HSK 4 | 823/823 (100%) |
-| HSK 5 | 922/941 (98%) |
-| HSK 6 | 949/974 (97%) |
-| HSK 7-9 | 2,232/2,724 (82%) |
+| HSK 1–4 | 100% |
+| HSK 5 | 98% |
+| HSK 6 | 97% |
+| HSK 7-9 | 82% |
 
 ### DB schema (8 tables)
 
@@ -125,12 +109,13 @@ compound_words    id, simplified, traditional, pinyin, hangul, han_viet,
 word_characters   word_id, character_id, position
 
 user_collections  id, name, icon, created_at
-                  Special ID: 'bookmarks' (auto-created on first bookmark)
+                  Special IDs: 'bookmarks', 'memorized' (auto-managed)
 
 user_collection_words  collection_id, word_id, added_at
                        NOTE: word_id stores character.id (not compound_words.id)
+                       'memorized' collection used for HSK check-off
 
-reading_history   id, title, raw_text, token_json, created_at   [Phase 3]
+reading_history   id, title, raw_text, token_json, created_at
 ai_cache          query, response_json, cached_at
 ```
 
@@ -140,13 +125,11 @@ FTS5 virtual table: `words_fts` — content table over `compound_words`, indexes
 
 ## Phase 1 — Flutter App ✅ Complete
 
-`flutter analyze lib/` → **0 errors, 0 warnings**
-
 ### Flutter project structure
 
 ```
 app/lib/
-├── main.dart                          ← splash + DB init (Isolate.run for 82MB copy)
+├── main.dart                          ← splash + DB init (Isolate.run for 83MB copy)
 ├── app.dart                           ← MaterialApp + ThemeModeNotifier
 ├── core/
 │   ├── database/
@@ -155,98 +138,208 @@ app/lib/
 │   │   └── daos/
 │   │       ├── character_dao.dart     ← CharacterDetail, getHskLevel(), getComponents()
 │   │       ├── compound_dao.dart      ← FTS5 search + LIKE fallback
-│   │       └── collection_dao.dart    ← bookmarks (stores character.id as word_id)
+│   │       └── collection_dao.dart    ← bookmarks, memorized, topic queries
 │   ├── services/
-│   │   ├── ai_service.dart            ← LlmProvider enum, LlmSettingsNotifier
-│   │   └── database_provider.dart     ← databaseProvider (must be overridden in ProviderScope)
-│   └── theme/
-│       └── app_theme.dart             ← SinosphereColors ThemeExtension, context.colors
+│   │   ├── ai_service.dart            ← LlmProvider enum, LlmSettingsNotifier, translateText()
+│   │   └── database_provider.dart
+│   └── theme/app_theme.dart           ← SinosphereColors ThemeExtension, context.colors
 └── features/
-    ├── shell/app_shell.dart           ← 4-tab NavigationBar + IndexedStack
+    ├── shell/app_shell.dart           ← 5-tab NavigationBar + IndexedStack
     ├── dict_card/
     │   ├── dict_card_screen.dart      ← DictCardScreen, _SearchResultSheet, _WordBottomSheet
-    │   ├── dict_card_provider.dart    ← activeSymbolProvider, characterDetailProvider
+    │   ├── dict_card_provider.dart
     │   └── widgets/
     │       ├── character_hero.dart    ← 72px symbol, HV, HSK badge, JP/KR/strokes
     │       ├── component_tree.dart    ← semantic/phonetic/iconic pills
     │       ├── etymology_card.dart    ← 3 states: story / shimmer / missing
-    │       └── compound_list.dart     ← 8 most frequent compounds
-    ├── search/search_bar.dart         ← SinosphereSearchBar, chip, direct DB query
-    ├── collections/collections_screen.dart  ← bookmarkedSymbolsProvider (public)
+    │       └── compound_list.dart     ← 8 compounds, bookmark button per row
+    ├── search/search_bar.dart         ← 350ms debounce, FTS5 + LIKE fallback
+    ├── graph/                         ← Phase 2 (see below)
+    ├── reader/                        ← Phase 3 (see below)
+    ├── collections/
+    │   ├── collections_screen.dart    ← HSK grid, topic packs, user decks, bookmarks
+    │   └── collection_detail_screen.dart ← CollectionDetailScreen, HskDetailScreen, TopicDetailScreen
     └── settings/settings_screen.dart  ← LLM config, RadioGroup, theme toggle
 ```
 
 ### Key architectural decisions
 
-**DB init:** `openDatabase()` in `database.dart` — checks if DB exists, copies 82 MB asset via `Isolate.run()` (non-blocking), then opens. Called before `runApp()` but after the splash screen is shown.
+**State management:** Riverpod v3. All providers use `NotifierProvider` / `AsyncNotifier`. No `StateProvider`. Key providers:
+- `databaseProvider` — must be overridden in `ProviderScope`
+- `activeSymbolProvider` — currently shown character symbol
+- `characterDetailProvider(symbol)` — `FutureProvider.family`
+- `bookmarkedSymbolsProvider` — public, invalidated after bookmark toggle
+- `llmSettingsProvider` — `AsyncNotifier<LlmSettings>` with `.save()` (not `.update()`)
+- `tabIndexProvider` — controls bottom nav tab selection
 
-**State management:** Riverpod v3. All providers use `NotifierProvider` / `AsyncNotifier` (no deprecated `StateProvider`). Key providers:
-- `databaseProvider` — must be overridden in `ProviderScope` (throws if not)
-- `activeSymbolProvider` — currently shown character symbol (default `晨`)
-- `characterDetailProvider(symbol)` — `FutureProvider.family`, loads full `CharacterDetail`
-- `bookmarkedSymbolsProvider` — in `collections_screen.dart`, **public** so dict card can invalidate it
-- `llmSettingsProvider` — `AsyncNotifier<LlmSettings>` with `.save()` method (not `.update()`)
-- `themeModeProvider` — `NotifierProvider<ThemeModeNotifier, ThemeMode>` with `.set()` and `.toggle()`
+**HSK level on character:** `characters.hsk_level` is always NULL. Use `CharacterDao.getHskLevel(characterId)` which queries `MIN(hsk_level)` from `compound_words` via `word_characters`.
 
-**HSK level on character:** `characters.hsk_level` is always NULL in the DB. Use `CharacterDao.getHskLevel(characterId)` which queries `MIN(hsk_level)` from `compound_words` via `word_characters`.
+**Search:** `SinosphereSearchBar` runs queries directly in `ConsumerStatefulWidget` — no `FutureProvider.family`. 350ms debounce. FTS5 primary, LIKE fallback on error.
 
-**Search:** `SinosphereSearchBar` runs queries directly in `ConsumerStatefulWidget` state — no `FutureProvider.family`. 350ms debounce. FTS5 primary (`"query" OR query*`), LIKE fallback on error. Single-char result → sets `activeSymbolProvider`. Multi-char result → opens `_SearchResultSheet`. Persistent chip shows last result for quick reopen.
+**Bookmarks:** `toggleBookmark(char.id)` stores `character.id` in `user_collection_words.word_id`. `getBookmarkedSymbols()` joins `characters` directly (not via compound_words).
 
-**Bookmarks:** `toggleBookmark(char.id)` stores `character.id` in `user_collection_words.word_id`. `getBookmarkedSymbols()` joins `characters` directly. After toggling, invalidate both `bookmarkProvider(char.id)` and `bookmarkedSymbolsProvider`.
+**Compound sheets:** Both `_WordBottomSheet` and `_SearchResultSheet` are consistent — `DraggableScrollableSheet`, each character 48px, tappable.
 
-**Compound sheets:** Both `_WordBottomSheet` (from compound list) and `_SearchResultSheet` (from search) are consistent — `DraggableScrollableSheet`, each character at 48px font, individually tappable via `GestureDetector` → `Navigator.pop` + `activeSymbolProvider.set(ch)`.
+**CollectionItem UNION query:** `getCollectionItems(collectionId)` uses UNION of characters JOIN and compound_words JOIN so both single-char and multi-char entries work.
 
-### Colour tokens
+### AI integration
 
-```dart
-background  = Color(0xFF020817)  // slate-950
-surface     = Color(0xFF0F172A)  // slate-900
-card        = Color(0xFF1E293B)  // slate-800
-hanviet     = Color(0xFFF59E0B)  // amber-500   — HV readings
-semantic    = Color(0xFF10B981)  // emerald-500  — semantic components
-phonetic    = Color(0xFF3B82F6)  // blue-500     — phonetic components
-iconic      = Color(0xFFA855F7)  // purple-500   — iconic components
-sky         = Color(0xFF38BDF8)  // sky-400      — pinyin, compounds
-learned     = Color(0xFF8B5CF6)  // violet-500   — user nodes (Graph phase)
-```
-
-Access via `context.colors` (returns `SinosphereColors` ThemeExtension).
-
-### AI / LLM integration
-
-Four providers in `ai_service.dart`:
-
-| Provider | Enum value | Notes |
+| Provider | Model | Notes |
 |---|---|---|
-| Claude Haiku 4.5 | `LlmProvider.claude` | `claude-haiku-4-5-20251001` |
-| Gemini Flash | `LlmProvider.gemini` | `gemini-1.5-flash` |
-| GPT-4o mini | `LlmProvider.openai` | `gpt-4o-mini` |
-| Custom | `LlmProvider.custom` | OpenAI-compatible endpoint; SAP Hyperspace base URL: `https://api.hyperspace.tools.sap/llm-proxy/anthropic`, API key = Hyperspace API key |
+| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | Direct Anthropic API (`api.anthropic.com`) only |
+| Gemini Flash | `gemini-1.5-flash` | Direct Google AI |
+| GPT-4o mini | `gpt-4o-mini` | Direct OpenAI |
+| Custom | configurable | Any OpenAI-compatible endpoint |
 
-API keys stored in `flutter_secure_storage`. Keys: `llm_provider`, `llm_api_key`, `llm_base_url`.
+Keys stored in `flutter_secure_storage`. For non-Custom providers, `baseUrl` is never read from storage (fixed by clearing stale Hyperspace URLs on `saveSettings`).
 
-Vietnamese chiết tự prompt matches `pipeline/generate_etymology.py` system prompt exactly.
+### Bugs fixed in real-device testing (Android Xiaomi)
 
-### Dependencies
+| Bug | Root cause | Fix |
+|---|---|---|
+| ALL API calls fail on Android | Missing `<uses-permission android:name="android.permission.INTERNET"/>` | Added to AndroidManifest.xml |
+| Search kept loading | `FutureProvider.family` spawned new instance per keystroke | Rewrote to direct async call + 350ms debounce |
+| FTS5 broken on some Android SQLite | FTS5 query syntax unsupported | LIKE fallback on exception |
+| HSK badge missing | `characters.hsk_level` never populated | `getHskLevel()` queries from `compound_words` |
+| Compound sheet cut off | `showModalBottomSheet` default height | `DraggableScrollableSheet` + `ListView` |
+| Compound sheet chars not tappable | Plain Text widget | `GestureDetector` per character |
+| Bookmark not appearing in Decks | Wrong JOIN + provider never invalidated | Fixed JOIN + `ref.invalidate(bookmarkedSymbolsProvider)` |
+| Claude API routing to wrong server | Stale Hyperspace base URL in secure storage | `_callClaude` never uses baseUrl; `saveSettings` clears it for non-Custom |
+| Collection nav leaves detail on stack | `Navigator.pop` then `tabIndexProvider.set(0)` | Capture `NavigatorState` before async gap; `nav.popUntil((r) => r.isFirst)` |
+| 0 words added to new deck | ID mismatch: `starred.contains(charId)` vs starred containing `charId ?? wordId` | Match ID resolution in both places |
+| Riverpod v3 breaking changes | `StateProvider`, `AsyncNotifier.update()`, `FamilyNotifier` removed | `NotifierProvider`, `.save()`, `NotifierProvider.family((id) => Notifier(id))` |
 
-```yaml
-drift: ^2.23.1           # resolved: 2.34.3
-drift_sqflite: ^2.0.1
-sqflite: ^2.4.2
-path_provider: ^2.1.5
-path: ^1.9.1
-flutter_riverpod: ^3.4.2  # resolved: 3.4.2 — Riverpod v3, no StateProvider
-riverpod_annotation: ^4.0.6
-http: ^1.2.2
-flutter_secure_storage: ^11.0.0
-url_launcher: ^6.3.1
-shimmer: ^3.0.0
-uuid: ^4.6.0
-# dev
-drift_dev: ^2.23.1
-build_runner: ^2.4.14
-riverpod_generator: ^4.0.8
-```
+---
+
+## Phase 2 — Graph Explorer ✅ Complete
+
+`lib/features/graph/` — custom `CustomPainter` canvas with `InteractiveViewer`.
+
+### Architecture
+
+- **`GraphState`**: `nodes`, `edges`, `compoundPages` (pagination map), `isLoading`
+- **`GraphNodeType`**: `character`, `component`, `sibling`, `compound`, `showMore`
+- **`GraphProvider`**: `NotifierProvider<GraphNotifier, GraphState>`
+
+### Graph seeding
+
+- Opens on a default character (晨) with its component and character ring pre-expanded
+- Radical picker (214 Kangxi radicals) lets user start from any radical
+- `setFocalWord(wordSimplified, charSymbols)`: places compound word at center with each char as sibling node
+
+### Interaction
+
+| Action | Result |
+|---|---|
+| Tap component node | Expand sibling characters that share the component |
+| Tap sibling character | Expand its compound words (paginated, HV resonance ordered) |
+| Tap focal character | Expand/collapse its compound words |
+| Tap compound node | `_GraphWordSheet` with tappable characters |
+| `+` button | Load next page of compound words (5 per page) |
+| `−` button | Remove last page of compound words (type-filtered: only compound/showMore nodes, leaves components intact) |
+| Radical picker chip | Open 214-radical scrollable panel; tap radical → set as focal |
+
+### Key fixes
+
+- **GestureDetector inside InteractiveViewer** (not wrapping it) — essential for correct hit testing
+- **`expandFocalCompounds`** separate from `expandSibling` — focal node expansion doesn't wipe components
+- **`removeLastCompoundPage`** type-filtered — only removes `compound` and `showMore` nodes, not component/sibling nodes
+- **ShowMore ID extraction**: strips both `'sib:'` and `'focal:'` prefixes before charId lookup
+
+### Colour coding
+
+- Focal node: amber (HV color)
+- Component nodes: emerald (semantic), blue (phonetic), purple (iconic)
+- Sibling characters: sky blue
+- Compound words: violet
+- Show-more chips: grey
+
+---
+
+## Phase 3 — Smart Reader ✅ Complete
+
+`lib/features/reader/` — Chinese text annotation with vocabulary harvest.
+
+### Architecture
+
+- **`ReaderState`**: `tokens`, `rawText`, `annotationMode`, `starred`, `aiTranslation`, `isTranslating`, `isAnnotating`, `history`
+- **`AnnotationMode`**: `hanviet`, `pinyin`, `both`, `none` (independent toggles)
+- **`ReaderToken`**: `text`, `charId`, `wordId`, `hanViet`, `pinyin`, `englishDef`, `isKnown`
+
+### Segmentation
+
+Greedy longest-match (up to 8 chars) against `compound_words` table. Falls back to single character if no match. Runs in `Isolate.run` to avoid UI jank.
+
+### Features
+
+| Feature | Detail |
+|---|---|
+| PY / HV toggles | Independent; PY is default; can reach `none` mode |
+| Inline annotation | Pinyin below token, HV reading above token |
+| Tap token | `TokenDetailSheet` with tappable characters |
+| Long-press token | Navigate to token's Component Graph |
+| AI translation | Claude/Gemini/GPT-4o mini; cached in `ai_cache` table; `translateWithAi()` checks cache first |
+| Word-by-word gloss | Always available offline; collapsible below AI translation |
+| Vocabulary harvest | Star tokens → bulk save to bookmarks or new deck via `HarvestPanel` |
+| Reading history | All annotated texts auto-saved; `ref.invalidate(readerHistoryProvider)` after save |
+| Sample snippet | Pre-seeded text labelled "Sample" |
+| Custom snippet | Paste area: full-width outlined button |
+| Settings shortcut | Settings button in header → `Navigator.push(SettingsScreen)` |
+
+### `HarvestPanel`
+
+Bottom sheet showing starred tokens with checkboxes. "Save to Decks" opens deck picker (existing decks + "Create New"). ID resolution: `token.charId ?? token.wordId ?? token.text` (must match `_HarvestRow` ID check).
+
+---
+
+## Phase 4 — Decks & Collections ✅ Complete
+
+`lib/features/collections/` — three collection types plus bookmarks.
+
+### HSK Decks
+
+7 decks (HSK 1–7, where HSK 7 = levels 7-9 combined). `HskDetailScreen`: paginated 50/page, memorize check-off, reset button. Memorized state stored in `user_collection_words` with `collection_id = 'memorized'`.
+
+### Topic Collections
+
+12 topic packs implemented via keyword SQL LIKE queries on `english_def` — no DB migration required:
+
+| Topic | Keywords |
+|---|---|
+| Nature & Cosmos | mountain, water, sky, flower, tree, earth, river, cloud, wind, season |
+| Body & Mind | body, heart, head, hand, eye, face, mind, blood |
+| City & Places | city, street, building, road, house, place, market, shop |
+| Emotions & Character | happy, sad, angry, love, fear, hope, feel, emotion |
+| Time & History | time, day, year, history, period, century, moment, hour |
+| Family & Society | family, father, mother, child, brother, sister, society, people |
+| Learning & Knowledge | learn, study, school, knowledge, teach, book, language |
+| Travel & Transport | travel, transport, car, train, road, trip, airport, ship |
+| Food & Drink | food, eat, drink, cook, rice, fruit, meat, dish |
+| Business & Economy | business, money, work, economy, trade, company, price, market |
+| Strong HV Cognates | `is_cognate_anchor = 1` (1,764 words) |
+| Popular Song Vocab | `hsk_level <= 3 AND han_viet_resonance = 'medium'` |
+
+`TopicDetailScreen` mirrors `HskDetailScreen` (paginated, memorize-able). `CollectionDao._topicWhere` static map drives all queries.
+
+### User Collections (My Decks)
+
+Create named decks from Decks tab. Words added via Reader's `HarvestPanel`. `CollectionDetailScreen` uses UNION query covering both char IDs and compound word IDs. Word sheet chars are tappable → opens Dict Card via pre-captured `NavigatorState` + `nav.popUntil((r) => r.isFirst)`.
+
+### Bookmarks
+
+Bookmark button on compound list rows and character hero. `bookmarkedSymbolsProvider` (public) auto-refreshes grid.
+
+---
+
+## Settings ✅ Complete
+
+`lib/features/settings/settings_screen.dart` — full LLM config screen.
+
+- Provider selection: Claude / Gemini / GPT-4o mini / Custom
+- API key field (masked), base URL + model name (Custom only)
+- `LlmSettings.isConfigured`: false if key empty OR (custom AND baseUrl empty)
+- `saveSettings()`: deletes `llm_base_url` + `llm_custom_model` from storage for non-Custom providers
+- No Hyperspace references in the app UI
 
 ---
 
@@ -257,62 +350,218 @@ riverpod_generator: ^4.0.8
 | Android | ✅ APK built and tested on Xiaomi device |
 | iOS | ❌ Xcode setup incomplete — not yet built |
 
-Build: `cd sinophere/app && flutter build apk --release`  
+Build: `cd app && flutter build apk --release`  
 Output: `build/app/outputs/flutter-apk/app-release.apk` (~130 MB)
 
-> Play Store limit is 100 MB for initial download — need Play Asset Delivery to split the 82 MB DB for store submission.
+> Play Store limit is 100 MB for initial download — need Play Asset Delivery to split the 83 MB DB for store submission.
 
-### Bugs fixed in real-device testing
+---
 
-| Bug | Root cause | Fix |
-|---|---|---|
-| Search kept loading | `FutureProvider.family` spawned new instance per keystroke; no debounce | Rewrote to direct `async` call in widget state with 350ms debounce |
-| Search slow on first launch | 82 MB `rootBundle.load` blocked main thread | `Isolate.run()` for file write; splash shown immediately |
-| FTS5 broken on some Android | Older SQLite may not support FTS5 query syntax | LIKE fallback on exception |
-| HSK badge missing | `characters.hsk_level` never populated in pipeline | `getHskLevel()` queries from `compound_words` |
-| JP Onyomi / strokes blank | Pipeline never populated these columns | `patch_jp_strokes.py` reads from Unihan zip |
-| Component text cut off | Hard 55-char truncation | Removed; `maxLines: 3, overflow: ellipsis` |
-| Compound sheet cut off | `showModalBottomSheet` default height + no scroll | `DraggableScrollableSheet` + `ListView` |
-| Compound sheet chars not tappable | Plain `Text` widget, no interaction | Both sheet types use `GestureDetector` per character |
-| Bookmark not appearing in Decks | `getBookmarkedSymbols` joined via `compound_words` (wrong) + provider never invalidated | Fixed join to `characters` directly; `ref.invalidate(bookmarkedSymbolsProvider)` on toggle |
+## GitHub
+
+Repo: https://github.com/utn100/sinosphere (public, account utn100)  
+117 files committed. `.gitignore` excludes: `data/db/`, `data/raw/`, `app/assets/sinosphere.db`, `app/assets/icon.png`, `.claude/`.
 
 ---
 
 ## Remaining Work
 
-### Phase 1 — Polish
-- [ ] HSK deck word counts in Decks screen hardcoded → query DB at runtime
-- [ ] 12 topic packs in Decks are UI stubs → back with real DB queries
-- [ ] Bookmark button not on compound list rows (only on main character card)
+### Near-term
+- [ ] Rebuild APK to include all recent fixes (graph `-` fix, topic collections, nav fix)
 - [ ] Finish etymology generation: HSK 7-9 at 82% → target 95%+
 - [ ] App icon + splash screen asset (currently default Flutter icon)
-- [ ] iOS build (install CocoaPods, complete Xcode setup)
+- [ ] iOS build (CocoaPods + Xcode setup)
 
-### Phase 2 — Graph Explorer
-- [ ] `CustomPainter` canvas, 3-tier graph (radical → character → compound)
-- [ ] Radical picker (214 radicals)
-- [ ] Filter: All / Strong HV Cognates / My Words
-- [ ] Seed graph with HSK 1-4 on first launch
-- [ ] "Explore Component Graph" on Dict Card navigates to that character's graph
+### Deferred features
+- [ ] Synonym / antonym "related words" (needs separate data source — not in CC-CEDICT)
+- [ ] Graph "My Words" filter layer (learned words shown differently)
+- [ ] AI grammar notes / register detection in Reader
+- [ ] Play Asset Delivery for Play Store submission (83 MB DB)
+---
 
-### Phase 3 — Smart Reader
-- [ ] Chinese text paste + segmentation (Jieba via FFI)
-- [ ] Interlinear annotation (pinyin above, HV below)
-- [ ] Tap word → Dict Card
-- [ ] Add to deck from Reader
-- [ ] Reading history (`reading_history` table already in schema)
+## Recent Enhancements (2026-08-14)
 
-### Phase 4 — Distribution
-- [ ] Play Asset Delivery for 82 MB DB
-- [ ] App Store submission
+### Image OCR in Reader Tab
+- New "From image" button beside "Paste text" in Reader input area
+- Uses `google_mlkit_text_recognition` (on-device, no API key, Chinese script model)
+- Gallery or camera pick via `image_picker`; extracted text populates input field for user review before annotating
+- Camera permission added to `AndroidManifest.xml`; all 5 ML Kit script model deps added to `build.gradle.kts` (required by R8)
+- New `lib/core/services/ocr_service.dart`; `isExtractingOcr` state in `ReaderState`
+
+### Topic Collections — DB Migration + Word Count
+- New `pipeline/tag_topics.py`: uses `\b` word-boundary regex (not `LIKE '%keyword%'`) to tag words accurately. Run against `data/db/sinosphere.db` before rebuilding APK.
+- `compound_words` table now has `topic_tag TEXT` column (Drift schema v2 migration)
+- `_topicWhere` in `CollectionDao` rewritten to query `topic_tag LIKE '%topicId%'` — zero false positives from substring collisions
+- `topicWordCountProvider` added; `_TopicRow` updated to `ConsumerWidget` showing live word count (e.g. "342 words") below topic name
+
+### Word Enrichment in Bottom Sheets
+- New `pipeline/generate_word_details.py`: generates synonyms, antonyms, example sentence per word via Claude Haiku. Run with `--resume` flag. Supports `--word`, `--limit`, `--priority`, `--status`.
+- `compound_words` gains 3 new columns: `synonyms TEXT`, `antonyms TEXT`, `example_sentence TEXT` (Drift schema v3 migration)
+- New `lib/features/dict_card/widgets/word_enrichment.dart` — `WordEnrichmentSection` widget with shimmer loading and on-device AI generation fallback
+- Applied to all 3 bottom sheets: `_WordBottomSheet` (Dict Card), `_CollectionWordSheet` (Decks), `TokenDetailSheet` (Reader)
+- `showCollectionWordSheet()` gains optional `wordId` param; passed through from HSK and Topic detail screens
+- New `CompoundDao.getById()` and `updateWordDetails()` methods
+- New `AiService.generateWordDetails()` method; `WordDetails` record class
+
+### Schema versions
+| Version | Migration |
+|---|---|
+| 1 | Initial |
+| 2 | `topic_tag TEXT` on `compound_words` |
+| 3 | `synonyms`, `antonyms`, `example_sentence` TEXT on `compound_words` |
+
+### Pipeline workflow (after these changes)
+```bash
+# 1. Tag topics (required for topic collections to work correctly)
+python3 pipeline/tag_topics.py
+
+# 2. Pre-generate word enrichment for HSK 1-6 (optional but recommended)
+ANTHROPIC_API_KEY=sk-ant-... python3 pipeline/generate_word_details.py --resume --priority
+
+# 3. Copy updated DB to app assets
+cp data/db/sinosphere.db app/assets/sinosphere.db
+
+# 4. Build APK (Drift migration runs automatically on first launch)
+cd app && flutter build apk --release
+```
 
 ---
 
-## Prototype
+## Phase 5 — Korean Learner Mode ✅ Complete (2026-08-15)
 
-`sinosphere_prototype.html` — open in any browser, no server needed.
+Korean mode toggle (`[ZH] / [KR]` pill in app bar) that switches the entire app experience. Persisted to `sinosphere_lang_mode` via `shared_preferences`.
 
-Tabs: Dict Card · Graph Explorer · Smart Reader · Decks  
-Search demo data: 晨, 明, 城, 地, 学, 心 + 28 compound words  
-Search flow: type → dropdown shows compounds → tap → word sheet with tappable chars → tap char → dict card  
-After sheet dismissal: chip shows last word for quick reopen
+### Phase 5a — DB Pipeline ✅
+- New `pipeline/generate_romaja.py` — rule-based Revised Romanization; populates `compound_words.romaja` (119,443 rows)
+- New `pipeline/tag_sino_korean.py` — populates `is_sino_korean` and `batchim` (rule-based, fast)
+- New `pipeline/tag_topik.py` — populates `topik_level` via HSK proxy mapping; supports `--csv` for real TOPIK word list
+- All scripts default to dry-run; use `--apply` to write; `--limit N` for sample testing
+
+### Phase 5b — Flutter infrastructure ✅
+- Schema v4: 4 new columns on `compound_words` (`romaja`, `topik_level`, `is_sino_korean`, `batchim`)
+- New `lib/core/services/lang_mode_provider.dart` — `LangMode` enum + `langModeProvider` (persisted to `SharedPreferences`)
+- `AppShell` updated to `ConsumerStatefulWidget` with animated `[ZH/KR]` pill in `AppBar`; inits from `SharedPreferences` on first frame
+- `SearchResult` extended with `hangul`, `romaja`, `topikLevel`; new `searchKorean()` and `getByHangul()` on `CompoundDao`
+- `CollectionDao` gains `getTopikWordCount()` and `getTopikWords()` methods
+
+### Phase 5c — Dict card Korean mode ✅
+- `activeKrWordProvider` tracks the currently shown Korean word; selecting a search result sets it directly (no modal)
+- `_KoreanWordCard` renders inline in the Dict body: large Hangul hero, romaja (indigo), tappable Hanja chips (cross-navigate to ZH), TOPIK badge, bookmark
+- Search bar shows hangul+romaja in indigo; chip shows hangul+romaja after selection; badge shows T1/T2 vs HSK
+- `WordEnrichmentSection` (Chinese synonyms/antonyms) suppressed in Korean mode
+
+### Phase 5d — Reader Korean mode ✅
+- `AnnotationMode.romaja` added; Korean reader shows single `[RJ On/Off]` chip (indigo) instead of PY/HV chips
+- `_KrEntry` in-memory index built at `ReaderNotifier.build()` from single SQL query (~119k rows); `_segmentKorean()` does O(1) map lookups — no DB hits in inner loop (fixes annotation speed)
+- `AnnotatedText` renders `token.romaja` in indigo above tokens in romaja mode
+- `TokenDetailSheet` shows romaja (indigo) + tappable Hanja cross-link in Korean mode
+- New `seeded_texts_kr.dart` with 3 Korean sample snippets; samples row shows correct set per mode
+
+### Phase 5e — Decks Korean mode ✅
+- `CollectionsScreen` shows TOPIK grid (6 levels, indigo) in KR mode; HSK grid hidden
+- New `TopikDetailScreen`: lists words by TOPIK level with hangul+romaja primary display
+- `_TopikCard` tappable → navigates to `TopikDetailScreen`
+- `HskDetailScreen`, `TopicDetailScreen`, `showCollectionWordSheet` / `_CollectionWordSheet` all show hangul+romaja as primary in KR mode; `WordEnrichmentSection` suppressed for Korean words
+- Topic collections subtitle swaps to `% Sino-Korean` label
+
+### Schema versions
+| Version | Migration |
+|---|---|
+| 1 | Initial |
+| 2 | `topic_tag TEXT` on `compound_words` |
+| 3 | `synonyms`, `antonyms`, `example_sentence` TEXT on `compound_words` |
+| 4 | `romaja`, `topik_level`, `is_sino_korean`, `batchim` on `compound_words` |
+
+### Pipeline workflow (full rebuild)
+```bash
+python3 pipeline/generate_romaja.py --apply
+python3 pipeline/tag_sino_korean.py --apply
+python3 pipeline/tag_topik.py --apply
+cp data/db/sinosphere.db app/assets/sinosphere.db
+cd app && flutter build apk --release
+```
+
+### Known limitations
+- `topik_level` derived from HSK proxy (approximate). For accurate levels, obtain a TOPIK word list CSV and re-run `tag_topik.py --csv topik_words.csv --apply`
+- Korean Graph mode (Hanja Family Tree) deferred to Phase 6
+
+---
+
+## Phase 6 — Korean Depth 🚧 Planned
+
+### Phase 6a — Korean Dict card enrichment ✅ Complete (2026-08-15)
+- New `KoreanHanjaPanel`: per-syllable Hanja Analysis — hanja glyph (tappable → ZH), hangul syllable (indigo), Han-Viet, pinyin, English, component pills (semantic/phonetic)
+- New `KoreanCompoundsPanel`: related Korean compounds sharing the same hanja root — hangul primary, romaja, hanja, TOPIK badge; tap navigates card in-place
+- Both panels shown only for Sino-Korean words; native Korean words (no hanja) show minimal hero card
+- New `getKoreanRelated()` on `CompoundDao`; new `koreanRelatedProvider`
+
+### Phase 6d — Korean Graph mode ✅ Complete (2026-08-15)
+- Canvas-based pivot graph: amber pivot node center, indigo Korean nodes right, red Chinese nodes left
+- 8 pivot chips (학/学, 수/水, 심/心 etc.) for quick switching; Focus Lens slider fades ZH/KR nodes
+- Tap KR node → inspector bar with "Dict" button → Korean Dict card
+- Tap ZH node → inspector bar with "Graph" button → switches to ZH mode + opens that word's Chinese graph
+- Data quality: only `topik_level IS NOT NULL` words shown (filters mechanical transliterations)
+- KR/ZH node counts balanced (6 each max)
+- Conjugation sub-view retained in Graph tab (code preserved for reuse); will be moved to Dict card in Phase 6b when KDict provides verb/part-of-speech labels
+
+### Phase 6b — KDict native Korean vocabulary + verb conjugation in Dict card 🚧 Planned
+- Import KDict (Korean government open dictionary, CC license) as `korean_words` table
+- KDict includes part-of-speech tags (verb, noun, adjective etc.) — use to label words in DB
+- `topik_level` from KDict metadata (replaces HSK proxy for native words)
+- `searchKorean()` UNIONs `compound_words` (Sino-Korean) and `korean_words` (native)
+- **Verb Conjugation section** added to Korean Dict card when `word.partOfSpeech == 'verb'`
+  - Reuses `ConjugationView` logic from `lib/features/graph/widgets/conjugation_view.dart`
+  - Shows stem + 3 formality levels × 3 tenses inline in the card
+
+### Phase 6c — TOPIK level accuracy
+- Source real TOPIK word list CSV (NIIED / community datasets)
+- Run `tag_topik.py --csv topik_words.csv --apply` to replace HSK-proxy levels
+- Also tag `korean_words` table with TOPIK levels from KDict metadata
+
+### Phase 6d — Korean Graph mode
+The Graph tab has a Korean content section in the HTML prototype. Implement in Flutter:
+- Hanja Family Tree: pivot node (學/학) at center, Korean compounds right (indigo), Chinese cognates left (faded red), grammar chain bottom (emerald)
+- Pivot selector chip row; Focus Lens slider (ZH ↔ KR); TOPIK filter pills (All / T1-2 / T3+)
+- Conjugation sub-view: promote existing conjugation tree alongside Hanja Roots
+
+---
+
+## Phase 7 — Polish & Bug Fixes 🚧 Planned
+
+- [ ] Synonym / antonym chips tappable to open that word's sheet (currently display-only)
+- [ ] HSK deck word counts queried from DB at runtime (currently hardcoded constants)
+- [ ] Graph "My Words" filter layer (learned words rendered differently)
+- [ ] AI grammar notes / register detection in Reader
+- [ ] Finish etymology generation: HSK 7-9 at 82% → target 95%+
+- [ ] Korean reader: improve segmentation coverage (single-syllable unmatched tokens)
+- [ ] App icon + splash screen asset
+- [ ] Performance audit: startup time, Reader annotation time for long texts
+
+---
+
+## Phase 8 — Distribution 🚧 Planned
+
+### Phase 8a — iOS build
+- CocoaPods setup + Xcode configuration
+- Add `NSCameraUsageDescription` to `Info.plist` for OCR camera access
+- Test on iOS simulator and device
+
+### Phase 8b — Play Store submission
+- Play Asset Delivery to split 83 MB DB below 100 MB store limit
+- Finalize app icon + splash screen
+- Store listing: screenshots, description, tags
+
+---
+
+## Remaining Work
+
+### Near-term
+- [ ] Rebuild APK with Phase 5+6a changes (run pipeline scripts first)
+- [ ] Run `generate_word_details.py` for HSK 1–6 pre-population
+- [ ] Phase 6b: KDict import pipeline + `korean_words` table
+
+### Deferred
+- [ ] Accurate `topik_level` via real TOPIK CSV (current: HSK proxy) — Phase 6c
+- [ ] Korean Graph mode — Phase 6d
+- [ ] iOS build — Phase 8a
+- [ ] Play Store submission — Phase 8b

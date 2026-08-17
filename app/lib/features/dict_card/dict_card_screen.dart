@@ -3,24 +3,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/database/database.dart';
 import '../../core/services/database_provider.dart';
+import '../../core/services/lang_mode_provider.dart';
 import '../search/search_bar.dart';
-import '../collections/collections_screen.dart' show bookmarkedSymbolsProvider;
+import '../collections/collections_screen.dart' show bookmarkedSymbolsProvider, bookmarkedItemsProvider;
 import '../shell/app_shell.dart' show tabIndexProvider;
-import '../graph/graph_provider.dart' show graphProvider;
+import '../graph/graph_provider.dart' show graphProvider, koreanGraphSearchProvider;
 import 'dict_card_provider.dart';
 import 'widgets/character_hero.dart';
 import 'widgets/component_tree.dart';
 import 'widgets/etymology_card.dart';
 import 'widgets/compound_list.dart';
+import 'widgets/word_enrichment.dart';
+import 'widgets/bookmark_button.dart';
+import 'widgets/korean_hanja_panel.dart';
+import 'widgets/korean_compounds_panel.dart';
 
 class DictCardScreen extends ConsumerWidget {
   const DictCardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c      = context.colors;
-    final symbol = ref.watch(activeSymbolProvider);
-    final detail = ref.watch(characterDetailProvider(symbol));
+    final c          = context.colors;
+    final symbol     = ref.watch(activeSymbolProvider);
+    final detail     = ref.watch(characterDetailProvider(symbol));
+    final langMode   = ref.watch(langModeProvider);
+    final isKorean   = langMode == LangMode.korean;
+    final krWord     = ref.watch(activeKrWordProvider);
+    final prevSymbol = ref.watch(previousSymbolProvider);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -29,26 +38,72 @@ class DictCardScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: SinosphereSearchBar(
+              placeholder: isKorean
+                  ? 'Search: 학교 / hak-gyo / school...'
+                  : 'Search: 晨 / chén / morning / THẦN...',
+              searchOverride: isKorean
+                  ? (q) => ref.read(databaseProvider).compoundDao.searchKorean(q)
+                  : null,
               onResultSelected: (result) {
-                if (result.simplified.length == 1) {
+                // Clear back navigation when doing a new search
+                ref.read(previousSymbolProvider.notifier).clear();
+                if (!isKorean && result.simplified.length == 1) {
                   ref.read(activeSymbolProvider.notifier).set(result.simplified);
+                } else if (isKorean) {
+                  ref.read(activeKrWordProvider.notifier).set(result);
                 } else {
                   _showSearchResultSheet(context, ref, result);
                 }
               },
             ),
           ),
+          // Back navigation chip — ZH mode, when drilled into a component
+          if (!isKorean && prevSymbol != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+              child: GestureDetector(
+                onTap: () {
+                  ref.read(activeSymbolProvider.notifier).set(prevSymbol);
+                  ref.read(previousSymbolProvider.notifier).clear();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.hanviet.withAlpha(20),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.hanviet.withAlpha(60)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.arrow_back_ios, size: 12, color: AppTheme.hanviet),
+                    const SizedBox(width: 4),
+                    Text('Back to $prevSymbol',
+                        style: const TextStyle(color: AppTheme.hanviet,
+                            fontSize: 12, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+            ),
           const SizedBox(height: 8),
           Expanded(
-            child: detail.when(
-              loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              error: (e, _) => Center(
-                  child: Text('Error loading character',
-                      style: TextStyle(color: c.textMuted))),
-              data: (d) => d == null
-                  ? _EmptyState(symbol: symbol)
-                  : _CharacterCardBody(detail: d),
-            ),
+            child: isKorean
+                ? (krWord == null
+                    ? const _KoreanEmptyState()
+                    : _KoreanWordCard(
+                        result: krWord,
+                        onHanjaTap: (ch) {
+                          ref.read(langModeProvider.notifier).set(LangMode.chinese);
+                          ref.read(activeSymbolProvider.notifier).set(ch);
+                        },
+                      ))
+                : detail.when(
+                    loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    error: (e, _) => Center(
+                        child: Text('Error loading character',
+                            style: TextStyle(color: c.textMuted))),
+                    data: (d) => d == null
+                        ? _EmptyState(symbol: symbol)
+                        : _CharacterCardBody(detail: d),
+                  ),
           ),
         ]),
       ),
@@ -106,13 +161,14 @@ class _SearchResultSheet extends StatelessWidget {
               decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 20),
 
-          // Tappable character row
+          // Tappable character row — long-press to copy the word
           Wrap(
             spacing: 4,
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.end,
             children: chars.map((ch) => GestureDetector(
               onTap: () => onCharTap(ch),
+              onLongPress: () => copyToClipboard(context, result.simplified),
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -162,6 +218,18 @@ class _SearchResultSheet extends StatelessWidget {
             ),
           ],
 
+          // Bookmark + Synonyms / antonyms / examples
+          if (result.id.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            BookmarkButton(wordId: result.id),
+          ],
+          WordEnrichmentSection(
+            wordId:     result.id,
+            simplified: result.simplified,
+            pinyin:     result.pinyin,
+            englishDef: result.englishDef,
+          ),
+
           const SizedBox(height: 16),
 
           // Hint
@@ -184,6 +252,422 @@ class _SearchResultSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ── Korean word card — persistent inline body ─────────────────────────────────
+class _KoreanWordCard extends ConsumerWidget {
+  final SearchResult result;
+  final void Function(String ch) onHanjaTap;
+
+  const _KoreanWordCard({required this.result, required this.onHanjaTap});
+
+  static const _krColor    = Color(0xFF818CF8);
+  static const _hanjaColor = AppTheme.hanviet;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c      = context.colors;
+    final hangul = result.hangul ?? result.simplified;
+    final romaja = result.romaja ?? '';
+    final hanja  = result.simplified;
+    final topik  = result.topikLevel;
+    final pos    = result.pos;
+    // A word has Hanja if the simplified Chinese form differs from the hangul
+    final hasSinoKorean = hanja != hangul && hanja.isNotEmpty;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        // Hero card
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [c.cardBg, c.bg],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: _krColor.withAlpha(60), width: 0.5),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Large hangul hero
+            Text(hangul,
+                style: TextStyle(color: c.text, fontSize: 60,
+                    fontWeight: FontWeight.w700, height: 1.0)),
+            const SizedBox(height: 6),
+            if (romaja.isNotEmpty)
+              Text(romaja,
+                  style: const TextStyle(color: _krColor, fontSize: 20,
+                      fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            // Hanja root row — only for Sino-Korean words
+            if (hasSinoKorean) ...[
+              Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                Text('Hanja  ',
+                    style: TextStyle(color: c.textMuted, fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+                ...hanja.split('').map((ch) => GestureDetector(
+                  onTap: () => onHanjaTap(ch),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _hanjaColor.withAlpha(30),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _hanjaColor.withAlpha(80)),
+                    ),
+                    child: Text(ch, style: const TextStyle(
+                        color: _hanjaColor, fontSize: 26, fontWeight: FontWeight.w700)),
+                  ),
+                )),
+              ]),
+              const SizedBox(height: 12),
+            ],
+            Text(result.englishDef,
+                style: TextStyle(color: c.text, fontSize: 15, height: 1.5)),
+            if (topik != null || pos != null || result.id.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                if (topik != null)
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: _krColor.withAlpha(38),
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Text('TOPIK $topik',
+                        style: const TextStyle(color: _krColor,
+                            fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                if (pos != null)
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withAlpha(38),
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Text(_capitalise(pos),
+                        style: const TextStyle(color: Color(0xFF10B981),
+                            fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                const Spacer(),
+                if (result.id.isNotEmpty)
+                  BookmarkButton(wordId: result.id, compact: true),
+              ]),
+            ],
+          ]),
+        ),
+        const SizedBox(height: 12),
+
+        // Hanja Analysis — Sino-Korean only
+        if (hasSinoKorean) ...[
+          KoreanHanjaPanel(
+            hanja: hanja,
+            hangul: hangul,
+            onHanjaTap: onHanjaTap,
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Korean Compounds — Sino-Korean only (native words have no related compounds)
+        if (hasSinoKorean && result.id.isNotEmpty) ...[
+          KoreanCompoundsPanel(
+            hanja: hanja,
+            excludeId: result.id,
+            onWordTap: (r) => ref.read(activeKrWordProvider.notifier).set(r),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Korean graph teaser — Sino-Korean only
+        if (hasSinoKorean) ...[
+          _KoreanGraphTeaser(
+            hangul: hangul,
+            hanja: hanja,
+            onTap: () {
+              ref.read(koreanGraphSearchProvider.notifier).set(
+                  (simplified: hanja, hangul: hangul));
+              ref.read(tabIndexProvider.notifier).set(1);
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Native Korean enrichment (synonyms / antonyms / example from korean_words)
+        if (result.isNativeKorean && result.id.isNotEmpty) ...[
+          _KoreanNativeEnrichment(wordId: result.id),
+          const SizedBox(height: 12),
+        ],
+
+        // Sino-Korean enrichment (synonyms / antonyms / example from KDict via compound_words)
+        if (!result.isNativeKorean && hasSinoKorean && result.id.isNotEmpty) ...[
+          _KoreanSinoEnrichment(wordId: result.id),
+          const SizedBox(height: 12),
+        ],
+
+        // Cross-link hint — Sino-Korean only
+        if (hasSinoKorean)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: _krColor.withAlpha(15),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _krColor.withAlpha(40), width: 0.5),
+            ),
+            child: Row(children: [
+              const Icon(Icons.open_in_new, size: 14, color: _krColor),
+              const SizedBox(width: 8),
+              Expanded(child: Text(
+                'Tap a Hanja character above to explore its Chinese etymology',
+                style: TextStyle(color: c.textMuted, fontSize: 11),
+              )),
+            ]),
+          ),
+      ],
+    );
+  }
+
+  String _capitalise(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
+// ── Korean graph teaser ───────────────────────────────────────────────────────
+class _KoreanGraphTeaser extends StatelessWidget {
+  final String hangul;
+  final String hanja;
+  final VoidCallback onTap;
+  const _KoreanGraphTeaser({required this.hangul, required this.hanja, required this.onTap});
+
+  static const _krColor = Color(0xFF818CF8);
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _krColor.withAlpha(15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _krColor.withAlpha(51), width: 0.5),
+        ),
+        child: Row(children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+                color: _krColor.withAlpha(38),
+                borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.hub_outlined, color: _krColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Explore Hanja Graph',
+                style: TextStyle(color: c.text, fontSize: 14, fontWeight: FontWeight.w700)),
+            Text('Pivot network — $hangul · $hanja',
+                style: TextStyle(color: c.textMuted, fontSize: 11)),
+          ])),
+          Icon(Icons.chevron_right, color: c.textMuted, size: 20),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Sino-Korean enrichment (from KDict via compound_words.kr_* columns) ──────
+class _KoreanSinoEnrichment extends ConsumerWidget {
+  final String wordId;
+  const _KoreanSinoEnrichment({required this.wordId});
+
+  static const _krColor = Color(0xFF818CF8);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c    = context.colors;
+    final word = ref.watch(krEnrichmentProvider(wordId));
+
+    return word.when(
+      loading: () => const SizedBox.shrink(),
+      error:   (_, _) => const SizedBox.shrink(),
+      data: (w) {
+        if (w == null) return const SizedBox.shrink();
+        final hasSyn = w.krSynonyms != null && w.krSynonyms!.isNotEmpty;
+        final hasAnt = w.krAntonyms != null && w.krAntonyms!.isNotEmpty;
+        final hasEx  = w.krExample  != null && w.krExample!.isNotEmpty;
+        if (!hasSyn && !hasAnt && !hasEx) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: c.cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: context.colors.border, width: 0.5),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('WORD RELATIONS',
+              style: TextStyle(color: c.textMuted, fontSize: 10,
+                  fontWeight: FontWeight.w700, letterSpacing: 1)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: _krColor.withAlpha(26),
+                borderRadius: BorderRadius.circular(8)),
+            child: const Text('KDict',
+                style: TextStyle(color: _krColor, fontSize: 10, fontWeight: FontWeight.w700)),
+          ),
+        ]),
+        if (hasSyn) ...[
+          const SizedBox(height: 10),
+          Text('Synonyms', style: TextStyle(color: c.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Wrap(spacing: 6, runSpacing: 4,
+            children: w.krSynonyms!.split(', ').map((s) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: _krColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _krColor.withAlpha(60))),
+              child: Text(s.trim(), style: const TextStyle(color: _krColor,
+                  fontSize: 12, fontWeight: FontWeight.w600)),
+            )).toList()),
+        ],
+        if (hasAnt) ...[
+          const SizedBox(height: 10),
+          Text('Antonyms', style: TextStyle(color: c.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Wrap(spacing: 6, runSpacing: 4,
+            children: w.krAntonyms!.split(', ').map((s) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: const Color(0xFFEF4444).withAlpha(20),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFEF4444).withAlpha(60))),
+              child: Text(s.trim(), style: const TextStyle(color: Color(0xFFEF4444),
+                  fontSize: 12, fontWeight: FontWeight.w600)),
+            )).toList()),
+        ],
+        if (hasEx) ...[
+          const SizedBox(height: 10),
+          Text('Example', style: TextStyle(color: c.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          ...w.krExample!.split('\n').map((line) =>
+            Padding(padding: const EdgeInsets.only(bottom: 2),
+              child: Text(line, style: TextStyle(color: c.text, fontSize: 13, height: 1.5)))),
+        ],
+      ]),
+        );
+      },
+    );
+  }
+}
+
+// ── Native Korean word enrichment (synonyms/antonyms/example from KDict) ─────
+class _KoreanNativeEnrichment extends ConsumerWidget {
+  final String wordId;
+  const _KoreanNativeEnrichment({required this.wordId});
+
+  static const _krColor = Color(0xFF818CF8);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c    = context.colors;
+    final word = ref.watch(koreanWordProvider(wordId));
+
+    return word.when(
+      loading: () => const SizedBox.shrink(),
+      error:   (_, _) => const SizedBox.shrink(),
+      data: (w) {
+        if (w == null) return const SizedBox.shrink();
+        final hasSyn = w.synonyms != null && w.synonyms!.isNotEmpty;
+        final hasAnt = w.antonyms != null && w.antonyms!.isNotEmpty;
+        final hasEx  = w.exampleSentence != null && w.exampleSentence!.isNotEmpty;
+        if (!hasSyn && !hasAnt && !hasEx) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: c.cardBg,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: c.border, width: 0.5),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('WORD RELATIONS',
+                  style: TextStyle(color: c.textMuted, fontSize: 10,
+                      fontWeight: FontWeight.w700, letterSpacing: 1)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                    color: _krColor.withAlpha(26),
+                    borderRadius: BorderRadius.circular(8)),
+                child: const Text('KDict',
+                    style: TextStyle(color: _krColor, fontSize: 10,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ]),
+            if (hasSyn) ...[
+              const SizedBox(height: 10),
+              Text('Synonyms', style: TextStyle(color: c.textMuted, fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Wrap(spacing: 6, runSpacing: 4,
+                children: w.synonyms!.split(', ').map((s) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _krColor.withAlpha(20),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _krColor.withAlpha(60)),
+                  ),
+                  child: Text(s.trim(), style: const TextStyle(
+                      color: _krColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                )).toList()),
+            ],
+            if (hasAnt) ...[
+              const SizedBox(height: 10),
+              Text('Antonyms', style: TextStyle(color: c.textMuted, fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Wrap(spacing: 6, runSpacing: 4,
+                children: w.antonyms!.split(', ').map((s) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withAlpha(20),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFEF4444).withAlpha(60)),
+                  ),
+                  child: Text(s.trim(), style: const TextStyle(
+                      color: Color(0xFFEF4444), fontSize: 12, fontWeight: FontWeight.w600)),
+                )).toList()),
+            ],
+            if (hasEx) ...[
+              const SizedBox(height: 10),
+              Text('Example', style: TextStyle(color: c.textMuted, fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text(w.exampleSentence!,
+                  style: TextStyle(color: c.text, fontSize: 13, height: 1.5)),
+            ],
+          ]),
+        );
+      },
+    );
+  }
+}
+
+// ── Korean empty state (shown in dict body when KR mode, no search yet) ───────
+class _KoreanEmptyState extends StatelessWidget {
+  const _KoreanEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      const Text('한', style: TextStyle(color: Color(0xFF818CF8), fontSize: 64,
+          fontWeight: FontWeight.w300)),
+      const SizedBox(height: 8),
+      Text('Search Korean words above', style: TextStyle(color: c.textMuted, fontSize: 14)),
+      const SizedBox(height: 4),
+      Text('e.g. 학교 · hak-gyo · school', style: TextStyle(color: c.textMuted, fontSize: 12)),
+    ]));
   }
 }
 
@@ -212,6 +696,7 @@ class _CharacterCardBody extends ConsumerWidget {
               await db.collectionDao.toggleBookmark(char.id);
               ref.invalidate(bookmarkProvider(char.id));
               ref.invalidate(bookmarkedSymbolsProvider);
+              ref.invalidate(bookmarkedItemsProvider);
             },
           );
         }),
@@ -221,6 +706,11 @@ class _CharacterCardBody extends ConsumerWidget {
           ComponentTree(
             components: detail.components,
             decomposition: char.decomposition ?? '',
+            onComponentTap: (compSymbol) {
+              // Save current symbol for back navigation, then navigate to component
+              ref.read(previousSymbolProvider.notifier).set(char.symbol);
+              ref.read(activeSymbolProvider.notifier).set(compSymbol);
+            },
           ),
         const SizedBox(height: 12),
 
@@ -286,12 +776,13 @@ class _WordBottomSheet extends StatelessWidget {
               decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 20),
 
-          // Tappable character row
+          // Tappable character row — long-press any char to copy the full word
           Wrap(
             spacing: 4,
             crossAxisAlignment: WrapCrossAlignment.end,
             children: word.simplified.split('').map((ch) => GestureDetector(
               onTap: () => onCharTap(ch),
+              onLongPress: () => copyToClipboard(context, word.simplified),
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -340,6 +831,21 @@ class _WordBottomSheet extends StatelessWidget {
               ),
             ),
           ],
+
+          // Bookmark
+          const SizedBox(height: 10),
+          BookmarkButton(wordId: word.id),
+
+          // Synonyms / antonyms / example sentence
+          WordEnrichmentSection(
+            wordId:          word.id,
+            simplified:      word.simplified,
+            pinyin:          word.pinyin,
+            englishDef:      word.englishDef,
+            initialSynonyms: word.synonyms,
+            initialAntonyms: word.antonyms,
+            initialExample:  word.exampleSentence,
+          ),
 
           const SizedBox(height: 16),
           Container(

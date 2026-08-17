@@ -347,3 +347,28 @@ class GraphNotifier extends Notifier<GraphData> {
 }
 
 final graphProvider = NotifierProvider<GraphNotifier, GraphData>(GraphNotifier.new);
+
+/// Persists the active Korean graph search across ZH↔KR mode switches.
+class KoreanGraphSearchNotifier extends Notifier<({String simplified, String hangul})?> {
+  @override
+  ({String simplified, String hangul})? build() => null;
+  void set(({String simplified, String hangul})? v) => state = v;
+}
+
+final koreanGraphSearchProvider = NotifierProvider<
+    KoreanGraphSearchNotifier, ({String simplified, String hangul})?>(
+  KoreanGraphSearchNotifier.new,
+);
+
+/// Korean pivot words — keyed by pivot character symbol (e.g. '学')
+final koreanPivotProvider = FutureProvider.family<
+    ({List<CompoundWord> kr, List<CompoundWord> zh}), String>(
+  (ref, symbol) =>
+      ref.read(databaseProvider).graphDao.getKoreanPivotWords(symbol),
+);
+
+/// Component characters for a Korean word — keyed by simplified Chinese form (e.g. '学校')
+final koreanWordComponentsProvider = FutureProvider.family<List<Character>, String>(
+  (ref, simplified) =>
+      ref.read(databaseProvider).graphDao.getWordComponents(simplified),
+);
