@@ -46,13 +46,17 @@ class _PracticeScreenState extends State<PracticeScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final strokeColor = isDark ? Colors.white : Colors.black87;
+    final guideColor = isDark ? Colors.white : Colors.black;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: c.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
+        backgroundColor: c.bg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white70),
+          icon: Icon(Icons.close, color: c.text),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -66,7 +70,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(child: Text(widget.englishDef,
-                style: TextStyle(color: Colors.white.withAlpha(128), fontSize: 12),
+                style: TextStyle(color: c.textMuted, fontSize: 12),
                 overflow: TextOverflow.ellipsis)),
           ),
         ],
@@ -81,9 +85,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
                 aspectRatio: 1,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF161B22),
+                    color: c.surf,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withAlpha(20)),
+                    border: Border.all(color: c.border),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
@@ -95,6 +99,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
                         painter: StrokePainter(
                           strokes: _strokes,
                           guideChar: widget.symbol,
+                          guideColor: guideColor,
+                          strokeColor: strokeColor,
                           strokeWidth: _strokeWidth,
                         ),
                         child: const SizedBox.expand(),
@@ -110,50 +116,46 @@ class _PracticeScreenState extends State<PracticeScreen> {
         // Toolbar
         Container(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          color: const Color(0xFF0D1117),
+          color: c.bg,
           child: Row(children: [
-            // Stroke width
-            const Icon(Icons.edit, color: Colors.white38, size: 16),
+            Icon(Icons.edit, color: c.textMuted, size: 16),
             Expanded(
               child: Slider(
                 value: _strokeWidth,
                 min: 2, max: 12,
                 activeColor: AppTheme.hanviet,
-                inactiveColor: Colors.white24,
+                inactiveColor: c.border,
                 onChanged: (v) => setState(() => _strokeWidth = v),
               ),
             ),
             const SizedBox(width: 8),
-            // Attempt counter
             if (_attempts > 0)
               Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: Text('$_attempts×',
-                    style: const TextStyle(color: Colors.white38, fontSize: 13)),
+                    style: TextStyle(color: c.textMuted, fontSize: 13)),
               ),
-            // Clear
             GestureDetector(
               onTap: _clear,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(15),
+                  color: c.surf,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withAlpha(30)),
+                  border: Border.all(color: c.border),
                 ),
-                child: const Text('Clear',
-                    style: TextStyle(color: Colors.white70,
+                child: Text('Clear',
+                    style: TextStyle(color: c.text,
                         fontWeight: FontWeight.w600, fontSize: 14)),
               ),
             ),
             const SizedBox(width: 10),
-            // Done
             GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppTheme.hanviet.withAlpha(200),
+                  color: AppTheme.hanviet,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text('Done',

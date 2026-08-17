@@ -23,7 +23,6 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
   int _correct = 0;
   bool _done = false;
 
-  // Canvas state
   final List<List<Offset>> _strokes = [];
   List<Offset>? _currentStroke;
   double _strokeWidth = 5.0;
@@ -58,7 +57,6 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
   }
 
   void _clear() => setState(() => _strokes.clear());
-
   void _reveal() => setState(() => _revealed = true);
 
   void _next(bool gotIt) {
@@ -77,53 +75,56 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final strokeColor = isDark ? Colors.white : Colors.black87;
+    final guideColor  = isDark ? Colors.white : Colors.black;
     final isKorean = ref.watch(langModeProvider) == LangMode.korean;
 
     if (_loading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0D1117),
-        body: const Center(child: CircularProgressIndicator(color: AppTheme.hanviet)),
+        backgroundColor: c.bg,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.hanviet)),
       );
     }
 
     if (_words.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0D1117),
-        appBar: AppBar(backgroundColor: const Color(0xFF0D1117), elevation: 0,
-            leading: IconButton(icon: const Icon(Icons.close, color: Colors.white70),
+        backgroundColor: c.bg,
+        appBar: AppBar(backgroundColor: c.bg, elevation: 0,
+            leading: IconButton(icon: Icon(Icons.close, color: c.text),
                 onPressed: () => Navigator.pop(context))),
         body: Center(child: Text('No words to practice yet.\nBookmark some words first!',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withAlpha(128), fontSize: 16))),
+            style: TextStyle(color: c.textMuted, fontSize: 16))),
       );
     }
 
-    if (_done) return _buildSummary(context);
+    if (_done) return _buildSummary(context, c);
 
     final word = _current;
     final displayChar = isKorean && word.hangul != null ? word.hangul! : word.simplified;
-    final guideChar = word.simplified; // always Chinese for writing practice
+    final guideChar = word.simplified;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: c.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
+        backgroundColor: c.bg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white70),
+          icon: Icon(Icons.close, color: c.text),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Daily Practice',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+          Text('Daily Practice',
+              style: TextStyle(color: c.text, fontSize: 16, fontWeight: FontWeight.w800)),
           Text('${_index + 1} of ${_words.length}',
-              style: TextStyle(color: Colors.white.withAlpha(100), fontSize: 12)),
+              style: TextStyle(color: c.textMuted, fontSize: 12)),
         ]),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
           child: LinearProgressIndicator(
             value: (_index + 1) / _words.length,
-            backgroundColor: Colors.white12,
+            backgroundColor: c.border,
             color: AppTheme.hanviet,
           ),
         ),
@@ -134,13 +135,13 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
           margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF161B22),
+            color: c.cardBg,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withAlpha(20)),
+            border: Border.all(color: c.border, width: 0.5),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(word.englishDef,
-                style: const TextStyle(color: Colors.white, fontSize: 16,
+                style: TextStyle(color: c.text, fontSize: 16,
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             Row(children: [
@@ -159,8 +160,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
             if (_revealed) ...[
               const SizedBox(height: 8),
               Text(displayChar,
-                  style: TextStyle(
-                      color: _revealed ? AppTheme.hanviet : Colors.transparent,
+                  style: const TextStyle(color: AppTheme.hanviet,
                       fontSize: 36, fontWeight: FontWeight.w900)),
             ],
           ]),
@@ -175,9 +175,9 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                 aspectRatio: 1,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF161B22),
+                    color: c.surf,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withAlpha(20)),
+                    border: Border.all(color: c.border),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
@@ -189,6 +189,8 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                         painter: StrokePainter(
                           strokes: _strokes,
                           guideChar: _revealed ? guideChar : '',
+                          guideColor: guideColor,
+                          strokeColor: strokeColor,
                           strokeWidth: _strokeWidth,
                         ),
                         child: const SizedBox.expand(),
@@ -204,7 +206,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
         // Toolbar
         Container(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-          color: const Color(0xFF0D1117),
+          color: c.bg,
           child: _revealed
               ? Row(children: [
                   Expanded(
@@ -250,12 +252,12 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                   ),
                 ])
               : Row(children: [
-                  const Icon(Icons.edit, color: Colors.white38, size: 16),
+                  Icon(Icons.edit, color: c.textMuted, size: 16),
                   Expanded(
                     child: Slider(
                       value: _strokeWidth, min: 2, max: 12,
                       activeColor: AppTheme.hanviet,
-                      inactiveColor: Colors.white24,
+                      inactiveColor: c.border,
                       onChanged: (v) => setState(() => _strokeWidth = v),
                     ),
                   ),
@@ -265,12 +267,12 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(15),
+                        color: c.surf,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withAlpha(30)),
+                        border: Border.all(color: c.border),
                       ),
-                      child: const Text('Clear',
-                          style: TextStyle(color: Colors.white70,
+                      child: Text('Clear',
+                          style: TextStyle(color: c.text,
                               fontWeight: FontWeight.w600, fontSize: 14)),
                     ),
                   ),
@@ -280,7 +282,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppTheme.hanviet.withAlpha(200),
+                        color: AppTheme.hanviet,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text('Reveal',
@@ -294,10 +296,10 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
     );
   }
 
-  Widget _buildSummary(BuildContext context) {
+  Widget _buildSummary(BuildContext context, dynamic c) {
     final pct = (_correct / _words.length * 100).round();
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: c.bg,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -307,11 +309,11 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                   style: const TextStyle(fontSize: 64)),
               const SizedBox(height: 24),
               Text('$_correct / ${_words.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 48,
+                  style: TextStyle(color: c.text, fontSize: 48,
                       fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               Text('$pct% correct',
-                  style: TextStyle(color: Colors.white.withAlpha(128), fontSize: 18)),
+                  style: TextStyle(color: c.textMuted, fontSize: 18)),
               const SizedBox(height: 40),
               GestureDetector(
                 onTap: () {
@@ -335,8 +337,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
               const SizedBox(height: 16),
               GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: Text('Done',
-                    style: TextStyle(color: Colors.white.withAlpha(128), fontSize: 16)),
+                child: Text('Done', style: TextStyle(color: c.textMuted, fontSize: 16)),
               ),
             ]),
           ),
