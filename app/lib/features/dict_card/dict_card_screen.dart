@@ -8,6 +8,7 @@ import '../search/search_bar.dart';
 import '../collections/collections_screen.dart' show bookmarkedSymbolsProvider, bookmarkedItemsProvider;
 import '../shell/app_shell.dart' show tabIndexProvider;
 import '../graph/graph_provider.dart' show graphProvider, koreanGraphSearchProvider;
+import '../practice/practice_screen.dart';
 import 'dict_card_provider.dart';
 import 'widgets/character_hero.dart';
 import 'widgets/component_tree.dart';
@@ -698,6 +699,14 @@ class _CharacterCardBody extends ConsumerWidget {
               ref.invalidate(bookmarkedSymbolsProvider);
               ref.invalidate(bookmarkedItemsProvider);
             },
+            onPracticeTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => PracticeScreen(
+                symbol:     char.symbol,
+                pinyin:     char.pinyin,
+                hanViet:    char.hanViet,
+                englishDef: char.englishDef,
+              ),
+            )),
           );
         }),
         const SizedBox(height: 12),

@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/services/database_provider.dart';
 import '../../core/services/lang_mode_provider.dart';
 import '../../core/database/database.dart';
+import '../practice/daily_practice_screen.dart';
 import 'collection_detail_screen.dart';
 
 // Seeded HSK decks
@@ -92,6 +93,48 @@ class CollectionsScreen extends ConsumerWidget {
                     style: TextStyle(
                         color: c.text, fontSize: 24,
                         fontWeight: FontWeight.w800)),
+              ),
+            ),
+
+            // Daily Practice banner
+            SliverToBoxAdapter(
+              child: GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const DailyPracticeScreen())),
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.hanviet.withAlpha(40),
+                        const Color(0xFF818CF8).withAlpha(30),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.hanviet.withAlpha(80), width: 0.5),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 44, height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.hanviet.withAlpha(50),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.edit_outlined, color: AppTheme.hanviet, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Daily Practice',
+                          style: TextStyle(color: AppTheme.hanviet, fontSize: 15,
+                              fontWeight: FontWeight.w800)),
+                      Text('Practice writing 10 random words',
+                          style: TextStyle(color: c.textMuted, fontSize: 12)),
+                    ])),
+                    Icon(Icons.chevron_right, color: c.textMuted, size: 20),
+                  ]),
+                ),
               ),
             ),
 

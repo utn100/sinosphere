@@ -528,4 +528,62 @@ class CollectionDao {
 
     return rows.map(_topikRowToWord).toList();
   }
+
+  /// Random words for daily practice — from bookmarks/memorized first, fallback to HSK 1-3.
+  Future<List<CompoundWord>> getRandomPracticeWords(int n) async {
+    final rows = await _db.customSelect('''
+      SELECT id, simplified, traditional, pinyin, hangul, han_viet,
+             han_viet_resonance, vietnamese_note, english_def,
+             hsk_level, frequency_rank, origin_type, is_cognate_anchor, ai_generated
+      FROM compound_words
+      WHERE id IN (
+        SELECT word_id FROM user_collection_words
+        WHERE collection_id IN ('bookmarks', 'memorized')
+      )
+      ORDER BY RANDOM() LIMIT ?
+    ''', variables: [Variable(n)], readsFrom: {_db.compoundWords, _db.userCollectionWords}).get();
+
+    // If not enough saved words, fill with random HSK 1-3
+    if (rows.length < n) {
+      final exclude = rows.map((r) => "'${r.read<String>('id')}'").join(',');
+      final excludeClause = exclude.isEmpty ? '' : 'AND id NOT IN ($exclude)';
+      final fallback = await _db.customSelect('''
+        SELECT id, simplified, traditional, pinyin, hangul, han_viet,
+               han_viet_resonance, vietnamese_note, english_def,
+               hsk_level, frequency_rank, origin_type, is_cognate_anchor, ai_generated
+        FROM compound_words
+        WHERE hsk_level <= 3 $excludeClause
+        ORDER BY RANDOM() LIMIT ?
+      ''', variables: [Variable(n - rows.length)], readsFrom: {_db.compoundWords}).get();
+      return [...rows, ...fallback].map((r) => CompoundWord(
+        id: r.read('id'), simplified: r.read('simplified'),
+        traditional: r.readNullable('traditional'), pinyin: r.read('pinyin'),
+        hangul: r.readNullable('hangul'), hanViet: r.read('han_viet'),
+        hanVietResonance: r.read('han_viet_resonance'),
+        vietnameseNote: r.readNullable('vietnamese_note'),
+        englishDef: r.read('english_def'), hskLevel: r.readNullable('hsk_level'),
+        frequencyRank: r.readNullable('frequency_rank'),
+        originType: r.read('origin_type'),
+        isCognateAnchor: r.read('is_cognate_anchor'),
+        aiGenerated: r.read('ai_generated'),
+        isSinoKorean: 0, batchim: 0, krVerified: 0, pos: null,
+        krSynonyms: null, krAntonyms: null, krExample: null, topikInSource: 0,
+      )).toList();
+    }
+
+    return rows.map((r) => CompoundWord(
+      id: r.read('id'), simplified: r.read('simplified'),
+      traditional: r.readNullable('traditional'), pinyin: r.read('pinyin'),
+      hangul: r.readNullable('hangul'), hanViet: r.read('han_viet'),
+      hanVietResonance: r.read('han_viet_resonance'),
+      vietnameseNote: r.readNullable('vietnamese_note'),
+      englishDef: r.read('english_def'), hskLevel: r.readNullable('hsk_level'),
+      frequencyRank: r.readNullable('frequency_rank'),
+      originType: r.read('origin_type'),
+      isCognateAnchor: r.read('is_cognate_anchor'),
+      aiGenerated: r.read('ai_generated'),
+      isSinoKorean: 0, batchim: 0, krVerified: 0, pos: null,
+      krSynonyms: null, krAntonyms: null, krExample: null, topikInSource: 0,
+    )).toList();
+  }
 }

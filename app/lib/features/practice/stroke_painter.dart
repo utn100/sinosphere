@@ -1,0 +1,79 @@
+import 'package:flutter/material.dart';
+
+class StrokePainter extends CustomPainter {
+  final List<List<Offset>> strokes;
+  final String guideChar;
+  final Color strokeColor;
+  final double strokeWidth;
+
+  StrokePainter({
+    required this.strokes,
+    required this.guideChar,
+    this.strokeColor = Colors.white,
+    this.strokeWidth = 4.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Guide character — faint background
+    final tp = TextPainter(
+      text: TextSpan(
+        text: guideChar,
+        style: TextStyle(
+          fontSize: size.width * 0.85,
+          color: Colors.white.withAlpha(28),
+          fontWeight: FontWeight.w900,
+          height: 1.0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    tp.layout();
+    final offset = Offset(
+      (size.width - tp.width) / 2,
+      (size.height - tp.height) / 2,
+    );
+    tp.paint(canvas, offset);
+
+    // Grid lines
+    final gridPaint = Paint()
+      ..color = Colors.white.withAlpha(18)
+      ..strokeWidth = 0.5;
+    canvas.drawLine(Offset(size.width / 2, 0), Offset(size.width / 2, size.height), gridPaint);
+    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), gridPaint);
+    // Diagonal guides
+    canvas.drawLine(Offset.zero, Offset(size.width, size.height), gridPaint);
+    canvas.drawLine(Offset(size.width, 0), Offset(0, size.height), gridPaint);
+
+    // User strokes
+    final paint = Paint()
+      ..color = strokeColor
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    for (final stroke in strokes) {
+      if (stroke.isEmpty) continue;
+      if (stroke.length == 1) {
+        canvas.drawCircle(stroke.first, strokeWidth / 2, paint..style = PaintingStyle.fill);
+        paint.style = PaintingStyle.stroke;
+        continue;
+      }
+      final path = Path()..moveTo(stroke.first.dx, stroke.first.dy);
+      for (int i = 1; i < stroke.length - 1; i++) {
+        final mid = Offset(
+          (stroke[i].dx + stroke[i + 1].dx) / 2,
+          (stroke[i].dy + stroke[i + 1].dy) / 2,
+        );
+        path.quadraticBezierTo(stroke[i].dx, stroke[i].dy, mid.dx, mid.dy);
+      }
+      path.lineTo(stroke.last.dx, stroke.last.dy);
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(StrokePainter old) =>
+      old.strokes != strokes || old.strokeColor != strokeColor || old.strokeWidth != strokeWidth;
+}

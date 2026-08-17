@@ -7,6 +7,7 @@ class CharacterHero extends StatelessWidget {
   final int? hskLevel;
   final bool isBookmarked;
   final VoidCallback onBookmarkTap;
+  final VoidCallback? onPracticeTap;
 
   const CharacterHero({
     super.key,
@@ -14,6 +15,7 @@ class CharacterHero extends StatelessWidget {
     required this.hskLevel,
     required this.isBookmarked,
     required this.onBookmarkTap,
+    this.onPracticeTap,
   });
 
   @override
@@ -84,6 +86,16 @@ class CharacterHero extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
+                if (onPracticeTap != null)
+                  GestureDetector(
+                    onTap: onPracticeTap,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: c.surf, borderRadius: BorderRadius.circular(14)),
+                      child: Icon(Icons.edit_outlined, color: c.textMuted, size: 20),
+                    ),
+                  ),
+                if (onPracticeTap != null) const SizedBox(height: 8),
                 if (hskLevel != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
