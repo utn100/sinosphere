@@ -153,7 +153,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(
-        child: Stack(children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Stack(children: [
           Column(children: [
             // ── Header ───────────────────────────────────────────────────
             Padding(
@@ -449,6 +452,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   onClose: () => setState(() => _showHistory = false)),
             ),
         ]),
+          ),
+        ),
       ),
     );
   }

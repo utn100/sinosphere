@@ -48,15 +48,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       backgroundColor: c.bg,
+      appBar: AppBar(
+        backgroundColor: c.bg,
+        elevation: 0,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: Icon(Icons.arrow_back_ios_new, color: c.text, size: 20),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
+        title: Text('Settings',
+            style: TextStyle(color: c.text, fontSize: 20,
+                fontWeight: FontWeight.w800)),
+      ),
       body: SafeArea(
+        top: false,
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Text('Settings',
-                style: TextStyle(
-                    color: c.text, fontSize: 24,
-                    fontWeight: FontWeight.w800)),
-            const SizedBox(height: 24),
 
             // ── LLM Provider ──────────────────────────────────────────
             _SectionHeader(label: 'AI PROVIDER', c: c),
