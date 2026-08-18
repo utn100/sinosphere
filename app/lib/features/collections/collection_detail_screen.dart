@@ -11,6 +11,8 @@ import '../graph/graph_provider.dart' show koreanGraphSearchProvider;
 import '../shell/app_shell.dart';
 import 'collections_screen.dart' show hskMemorizedCountProvider, topikMemorizedCountProvider, userCollectionsProvider;
 
+const _memorizedCollectionId = 'memorized';
+
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final collectionItemsProvider =
@@ -205,6 +207,7 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
     await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
     ref.invalidate(hskMemorizedCountProvider(widget.hskLevel));
     ref.invalidate(userCollectionsProvider);
+    ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -230,6 +233,7 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
     if (ok != true) return;
     await ref.read(databaseProvider).collectionDao.resetMemorized(widget.hskLevel);
     ref.invalidate(hskMemorizedCountProvider(widget.hskLevel));
+    ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
     setState(() => _memorized = {});
   }
 
@@ -707,6 +711,7 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
   Future<void> _toggleMemorized(String wordId) async {
     await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
     ref.invalidate(userCollectionsProvider);
+    ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -737,6 +742,7 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
               onPressed: () async {
                 await ref.read(databaseProvider).collectionDao
                     .resetMemorizedForWords(_memorized.toList());
+                ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
                 setState(() => _memorized = {});
               },
               icon: const Icon(Icons.refresh, size: 16, color: AppTheme.hanviet),
@@ -772,6 +778,7 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
                               await ref.read(databaseProvider).collectionDao
                                   .resetMemorizedForWords(_memorized.toList());
                               ref.invalidate(userCollectionsProvider);
+                              ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
                               setState(() => _memorized = {});
                             },
                             child: const Text('Reset', style: TextStyle(color: AppTheme.hanviet))),
@@ -1014,6 +1021,7 @@ class _TopikDetailScreenState extends ConsumerState<TopikDetailScreen> {
           .resetMemorizedByTopik(level);
     }
     ref.invalidate(topikMemorizedCountProvider(widget.topikLevels.join(',')));
+    ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
     setState(() => _memorized = {});
   }
 
