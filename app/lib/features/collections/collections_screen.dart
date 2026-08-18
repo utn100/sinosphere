@@ -577,10 +577,14 @@ class _BookmarksGrid extends ConsumerWidget {
             return SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text('No bookmarks yet.',
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Image.asset('assets/logo.png', width: 120, height: 120),
+                    const SizedBox(height: 12),
+                    Text('No bookmarks yet.',
                     style: TextStyle(
                         color: c.textMuted, fontSize: 13,
                         fontStyle: FontStyle.italic)),
+                  ]),
               ),
             );
           }

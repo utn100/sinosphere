@@ -122,9 +122,13 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
         appBar: AppBar(backgroundColor: c.bg, elevation: 0,
             leading: IconButton(icon: Icon(Icons.close, color: c.text),
                 onPressed: () => Navigator.pop(context))),
-        body: Center(child: Text('No words to practice yet.\nBookmark some words first!',
+        body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Image.asset('assets/logo.png', width: 120, height: 120),
+          const SizedBox(height: 16),
+          Text('No words to practice yet.\nBookmark some words first!',
             textAlign: TextAlign.center,
-            style: TextStyle(color: c.textMuted, fontSize: 16))),
+            style: TextStyle(color: c.textMuted, fontSize: 16)),
+        ])),
       );
     }
 

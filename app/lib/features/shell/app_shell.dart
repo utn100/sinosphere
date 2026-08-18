@@ -43,10 +43,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         elevation: 0,
         centerTitle: false,
         title: Text(
-          'Sinosphere',
+          'SINOSPHERE',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
+            letterSpacing: 2.5,
             color: isKorean ? const Color(0xFF818CF8) : AppTheme.coral,
           ),
         ),
