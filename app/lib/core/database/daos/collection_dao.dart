@@ -616,4 +616,29 @@ class CollectionDao {
       krSynonyms: null, krAntonyms: null, krExample: null, topikInSource: 0,
     )).toList();
   }
+
+  /// Random KR words for daily practice — TOPIK verified words only (compound + native).
+  Future<List<CompoundWord>> getRandomKrPracticeWords(int n) async {
+    final rows = await _db.customSelect('''
+      SELECT * FROM (
+        SELECT id, simplified, NULL as traditional, pinyin, hangul, han_viet,
+               'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
+               NULL as hsk_level, frequency_rank, 'sino_chinese' as origin_type,
+               0 as is_cognate_anchor, 0 as ai_generated
+        FROM compound_words
+        WHERE topik_in_source = 1 AND LENGTH(hangul) >= 2
+        UNION ALL
+        SELECT id, hangul as simplified, NULL as traditional,
+               COALESCE(romaja,'') as pinyin, hangul, '' as han_viet,
+               'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
+               NULL as hsk_level, frequency_rank, 'native_korean' as origin_type,
+               0 as is_cognate_anchor, 0 as ai_generated
+        FROM korean_words
+        WHERE topik_level IS NOT NULL
+      )
+      ORDER BY RANDOM() LIMIT ?
+    ''', variables: [Variable(n)],
+        readsFrom: {_db.compoundWords, _db.koreanWords}).get();
+    return rows.map(_topikRowToWord).toList();
+  }
 }

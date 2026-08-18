@@ -37,8 +37,12 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
   }
 
   Future<void> _loadWords() async {
-    final words = await ref.read(databaseProvider).collectionDao
-        .getRandomPracticeWords(_sessionSize);
+    final isKorean = ref.read(langModeProvider) == LangMode.korean;
+    final words = isKorean
+        ? await ref.read(databaseProvider).collectionDao
+            .getRandomKrPracticeWords(_sessionSize)
+        : await ref.read(databaseProvider).collectionDao
+            .getRandomPracticeWords(_sessionSize);
     if (mounted) setState(() { _words = words; _loading = false; });
   }
 
@@ -171,14 +175,15 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                 style: TextStyle(color: c.text, fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             Row(children: [
-              Text(word.hanViet,
-                  style: const TextStyle(color: AppTheme.hanviet,
-                      fontSize: 13, fontWeight: FontWeight.w800)),
-              const SizedBox(width: 8),
-              Text(word.pinyin,
-                  style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12)),
+              if (!isKorean)
+                Text(word.hanViet,
+                    style: const TextStyle(color: AppTheme.hanviet,
+                        fontSize: 13, fontWeight: FontWeight.w800)),
+              if (!isKorean) const SizedBox(width: 8),
+              if (!isKorean)
+                Text(word.pinyin,
+                    style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12)),
               if (isKorean && word.romaja != null) ...[
-                const SizedBox(width: 8),
                 Text(word.romaja!,
                     style: const TextStyle(color: Color(0xFF818CF8), fontSize: 12)),
               ],

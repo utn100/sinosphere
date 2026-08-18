@@ -175,6 +175,7 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
 
   Future<void> _toggleMemorized(String wordId) async {
     await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
+    ref.invalidate(hskMemorizedCountProvider(widget.hskLevel));
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -946,6 +947,7 @@ class _TopikDetailScreenState extends ConsumerState<TopikDetailScreen> {
 
   Future<void> _toggleMemorized(String wordId) async {
     await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
+    ref.invalidate(topikMemorizedCountProvider(widget.topikLevels.join(',')));
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -956,6 +958,19 @@ class _TopikDetailScreenState extends ConsumerState<TopikDetailScreen> {
   }
 
   Future<void> _resetMemorized() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset memorized?'),
+        content: const Text('All checked-off words will be restored to this list.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Reset', style: TextStyle(color: Colors.orange))),
+        ],
+      ),
+    );
+    if (ok != true) return;
     for (final level in widget.topikLevels) {
       await ref.read(databaseProvider).collectionDao
           .resetMemorizedByTopik(level);
