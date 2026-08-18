@@ -87,6 +87,15 @@ const _notifDetails = NotificationDetails(
   ),
 );
 
+Future<void> initAndSchedule(ProviderContainer container) async {
+  try {
+    await initNotifications();
+    await scheduleWordOfDay(container);
+  } catch (e) {
+    print('Notification init error: $e');
+  }
+}
+
 Future<void> scheduleWordOfDay(ProviderContainer container) async {
   try {
     final words = await container.read(databaseProvider).collectionDao

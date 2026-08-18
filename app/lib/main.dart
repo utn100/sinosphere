@@ -36,8 +36,8 @@ void main() async {
   );
   notificationContainer = container;
 
-  // Notifications initialise in background — never block the UI
-  initNotifications().then((_) => scheduleWordOfDay(container));
+  // Notifications initialise + schedule in background — never block the UI
+  initAndSchedule(container);
 
   // Replace loading screen with real app
   runApp(UncontrolledProviderScope(
