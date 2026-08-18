@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database.dart';
@@ -17,9 +18,11 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
   static const _sessionSize = 10;
 
   List<CompoundWord> _words = [];
+  List<CompoundWord> _retryQueue = [];
   int _index = 0;
   bool _revealed = false;
   bool _loading = true;
+  bool _inRetryRound = false;
   int _correct = 0;
   bool _done = false;
 
@@ -56,19 +59,42 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
     setState(() => _currentStroke = null);
   }
 
-  void _clear() => setState(() => _strokes.clear());
+  void _clearCanvas() => setState(() { _strokes.clear(); _currentStroke = null; });
+
   void _reveal() => setState(() => _revealed = true);
 
-  void _next(bool gotIt) {
-    if (gotIt) setState(() => _correct++);
-    if (_index + 1 >= _words.length) {
-      setState(() => _done = true);
-    } else {
+  void _tryAgain() {
+    // Add to retry queue, advance to next word, reset canvas
+    _retryQueue.add(_current);
+    _advanceOrFinish(markCorrect: false, addToRetry: false);
+  }
+
+  void _gotIt() => _advanceOrFinish(markCorrect: true, addToRetry: false);
+
+  void _next() => _advanceOrFinish(markCorrect: false, addToRetry: false);
+
+  void _advanceOrFinish({required bool markCorrect, required bool addToRetry}) {
+    if (markCorrect) setState(() => _correct++);
+
+    final nextIndex = _index + 1;
+    if (nextIndex < _words.length) {
       setState(() {
-        _index++;
+        _index = nextIndex;
         _revealed = false;
         _strokes.clear();
       });
+    } else if (_retryQueue.isNotEmpty) {
+      // Start retry round
+      setState(() {
+        _words = List.from(_retryQueue);
+        _retryQueue = [];
+        _index = 0;
+        _revealed = false;
+        _strokes.clear();
+        _inRetryRound = true;
+      });
+    } else {
+      setState(() => _done = true);
     }
   }
 
@@ -104,6 +130,9 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
     final word = _current;
     final displayChar = isKorean && word.hangul != null ? word.hangul! : word.simplified;
     final guideChar = word.simplified;
+    final progressLabel = _inRetryRound
+        ? 'Retry ${_index + 1} of ${_words.length}'
+        : '${_index + 1} of ${_words.length}';
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -115,25 +144,24 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Daily Practice',
+          Text(_inRetryRound ? 'Retry Round' : 'Daily Practice',
               style: TextStyle(color: c.text, fontSize: 16, fontWeight: FontWeight.w800)),
-          Text('${_index + 1} of ${_words.length}',
-              style: TextStyle(color: c.textMuted, fontSize: 12)),
+          Text(progressLabel, style: TextStyle(color: c.textMuted, fontSize: 12)),
         ]),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
           child: LinearProgressIndicator(
             value: (_index + 1) / _words.length,
             backgroundColor: c.border,
-            color: AppTheme.hanviet,
+            color: _inRetryRound ? const Color(0xFF818CF8) : AppTheme.hanviet,
           ),
         ),
       ),
       body: Column(children: [
         // Prompt card
         Container(
-          margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: c.cardBg,
             borderRadius: BorderRadius.circular(16),
@@ -141,38 +169,38 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(word.englishDef,
-                style: TextStyle(color: c.text, fontSize: 16,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
+                style: TextStyle(color: c.text, fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
             Row(children: [
               Text(word.hanViet,
                   style: const TextStyle(color: AppTheme.hanviet,
-                      fontSize: 14, fontWeight: FontWeight.w800)),
-              const SizedBox(width: 10),
+                      fontSize: 13, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 8),
               Text(word.pinyin,
-                  style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 13)),
+                  style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12)),
               if (isKorean && word.romaja != null) ...[
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Text(word.romaja!,
-                    style: const TextStyle(color: Color(0xFF818CF8), fontSize: 13)),
+                    style: const TextStyle(color: Color(0xFF818CF8), fontSize: 12)),
               ],
             ]),
             if (_revealed) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(displayChar,
                   style: const TextStyle(color: AppTheme.hanviet,
-                      fontSize: 36, fontWeight: FontWeight.w900)),
+                      fontSize: 28, fontWeight: FontWeight.w900)),
             ],
           ]),
         ),
 
-        // Canvas
+        // Canvas — LayoutBuilder caps height so toolbar never overflows
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: 1,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final size = min(constraints.maxWidth - 32,
+                            constraints.maxHeight - 80).clamp(100.0, 600.0);
+            return Center(
+              child: SizedBox(
+                width: size, height: size,
                 child: Container(
                   decoration: BoxDecoration(
                     color: c.surf,
@@ -199,53 +227,77 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          }),
         ),
 
         // Toolbar
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
           color: c.bg,
           child: _revealed
               ? Row(children: [
+                  // Try again — clear canvas, stay on word
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => _next(false),
+                      onTap: _tryAgain,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: Colors.red.withAlpha(30),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.red.withAlpha(80)),
+                          color: Colors.red.withAlpha(25),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.withAlpha(70)),
                         ),
                         child: const Row(mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.close, color: Colors.redAccent, size: 18),
-                              SizedBox(width: 6),
+                              Icon(Icons.refresh, color: Colors.redAccent, size: 16),
+                              SizedBox(width: 4),
                               Text('Try again', style: TextStyle(color: Colors.redAccent,
-                                  fontWeight: FontWeight.w700)),
+                                  fontWeight: FontWeight.w700, fontSize: 13)),
                             ]),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
+                  // Next — advance without marking correct
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => _next(true),
+                      onTap: _next,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: Colors.green.withAlpha(30),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.green.withAlpha(80)),
+                          color: c.surf,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: c.border),
+                        ),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('Next', style: TextStyle(color: c.text,
+                                  fontWeight: FontWeight.w700, fontSize: 13)),
+                              const SizedBox(width: 4),
+                              Icon(Icons.arrow_forward, color: c.text, size: 16),
+                            ]),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Got it — mark correct, advance
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _gotIt,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withAlpha(25),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.green.withAlpha(70)),
                         ),
                         child: const Row(mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.check, color: Colors.greenAccent, size: 18),
-                              SizedBox(width: 6),
-                              Text('Got it!', style: TextStyle(color: Colors.greenAccent,
-                                  fontWeight: FontWeight.w700)),
+                              Icon(Icons.check, color: Colors.greenAccent, size: 16),
+                              SizedBox(width: 4),
+                              Text('Got it', style: TextStyle(color: Colors.greenAccent,
+                                  fontWeight: FontWeight.w700, fontSize: 13)),
                             ]),
                       ),
                     ),
@@ -263,9 +315,9 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: _clear,
+                    onTap: _clearCanvas,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color: c.surf,
                         borderRadius: BorderRadius.circular(12),
@@ -273,21 +325,21 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                       ),
                       child: Text('Clear',
                           style: TextStyle(color: c.text,
-                              fontWeight: FontWeight.w600, fontSize: 14)),
+                              fontWeight: FontWeight.w600, fontSize: 13)),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: _reveal,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color: AppTheme.hanviet,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text('Reveal',
                           style: TextStyle(color: Colors.white,
-                              fontWeight: FontWeight.w700, fontSize: 14)),
+                              fontWeight: FontWeight.w700, fontSize: 13)),
                     ),
                   ),
                 ]),
@@ -297,7 +349,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
   }
 
   Widget _buildSummary(BuildContext context, dynamic c) {
-    final pct = (_correct / _words.length * 100).round();
+    final pct = (_correct / _sessionSize * 100).clamp(0, 100).round();
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(
@@ -308,7 +360,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
               Text(pct >= 80 ? '🎉' : pct >= 50 ? '💪' : '📚',
                   style: const TextStyle(fontSize: 64)),
               const SizedBox(height: 24),
-              Text('$_correct / ${_words.length}',
+              Text('$_correct / $_sessionSize',
                   style: TextStyle(color: c.text, fontSize: 48,
                       fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
@@ -318,8 +370,9 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
               GestureDetector(
                 onTap: () {
                   setState(() {
-                    _index = 0; _correct = 0; _done = false;
-                    _revealed = false; _strokes.clear(); _loading = true;
+                    _index = 0; _correct = 0; _done = false; _inRetryRound = false;
+                    _revealed = false; _strokes.clear(); _retryQueue = [];
+                    _loading = true;
                   });
                   _loadWords();
                 },

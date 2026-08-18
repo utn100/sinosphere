@@ -17,13 +17,15 @@ class StrokePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Guide character — faint background, smaller and thinner
+    // Guide character — scale font size by character count so multi-char words fit
     if (guideChar.isNotEmpty) {
+      final charCount = guideChar.length.clamp(1, 6);
+      final fontSize = (size.width * 0.68) / charCount;
       final tp = TextPainter(
         text: TextSpan(
           text: guideChar,
           style: TextStyle(
-            fontSize: size.width * 0.68,
+            fontSize: fontSize,
             color: guideColor.withAlpha(18),
             fontWeight: FontWeight.w400,
             height: 1.0,

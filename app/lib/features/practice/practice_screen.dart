@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import 'stroke_painter.dart';
@@ -78,11 +79,12 @@ class _PracticeScreenState extends State<PracticeScreen> {
       body: Column(children: [
         // Canvas
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: 1,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final size = min(constraints.maxWidth - 32,
+                            constraints.maxHeight - 80).clamp(100.0, 600.0);
+            return Center(
+              child: SizedBox(
+                width: size, height: size,
                 child: Container(
                   decoration: BoxDecoration(
                     color: c.surf,
@@ -109,8 +111,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          }),
         ),
 
         // Toolbar
