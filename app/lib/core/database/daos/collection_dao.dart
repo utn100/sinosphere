@@ -129,6 +129,30 @@ class CollectionDao {
     return rows.map((r) => r.read<String>('word_id')).toSet();
   }
 
+  /// Returns memorized IDs scoped to a specific TOPIK band — never bleeds into HSK.
+  Future<Set<String>> getMemorizedWordIdsByTopikLevels(List<int> levels) async {
+    final placeholders = levels.map((_) => '?').join(',');
+    final r1 = await _db.customSelect(
+      'SELECT ucw.word_id FROM user_collection_words ucw '
+      'JOIN compound_words cw ON cw.id = ucw.word_id '
+      'WHERE ucw.collection_id = ? AND cw.topik_level IN ($placeholders) '
+      'AND cw.topik_in_source = 1 AND LENGTH(cw.hangul) >= 2',
+      variables: [const Variable(_memorizedId), ...levels.map(Variable.new)],
+      readsFrom: {_db.userCollectionWords, _db.compoundWords},
+    ).get();
+    final r2 = await _db.customSelect(
+      'SELECT ucw.word_id FROM user_collection_words ucw '
+      'JOIN korean_words kw ON kw.id = ucw.word_id '
+      'WHERE ucw.collection_id = ? AND kw.topik_level IN ($placeholders)',
+      variables: [const Variable(_memorizedId), ...levels.map(Variable.new)],
+      readsFrom: {_db.userCollectionWords, _db.koreanWords},
+    ).get();
+    return {
+      ...r1.map((r) => r.read<String>('word_id')),
+      ...r2.map((r) => r.read<String>('word_id')),
+    };
+  }
+
   Future<int> getMemorizedCountByHsk(int level) async {
     final row = await _db.customSelect('''
       SELECT COUNT(*) as cnt FROM user_collection_words ucw

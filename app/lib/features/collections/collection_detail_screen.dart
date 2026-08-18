@@ -767,8 +767,14 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
                           Text('All words on this page memorised!',
                               style: TextStyle(color: c.textMuted, fontSize: 14)),
                           const SizedBox(height: 8),
-                          TextButton(onPressed: () => setState(() => _memorized = {}),
-                              child: const Text('Reset', style: TextStyle(color: AppTheme.hanviet))),
+                          TextButton(
+                            onPressed: () async {
+                              await ref.read(databaseProvider).collectionDao
+                                  .resetMemorizedForWords(_memorized.toList());
+                              ref.invalidate(userCollectionsProvider);
+                              setState(() => _memorized = {});
+                            },
+                            child: const Text('Reset', style: TextStyle(color: AppTheme.hanviet))),
                         ]))
                       : ListView.separated(
                           controller: _scrollCtrl,
@@ -956,7 +962,8 @@ class _TopikDetailScreenState extends ConsumerState<TopikDetailScreen> {
       final words = levels.length == 1
           ? await db.collectionDao.getTopikWords(levels.first, offset: page * _pageSize, limit: _pageSize)
           : await db.collectionDao.getTopikWordsMulti(levels, offset: page * _pageSize, limit: _pageSize);
-      final allMem = await db.collectionDao.getAllMemorizedWordIds();
+      final allMem = await db.collectionDao
+          .getMemorizedWordIdsByTopikLevels(levels);
       if (!mounted) return;
       setState(() {
         _page      = page;
