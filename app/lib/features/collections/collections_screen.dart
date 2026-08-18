@@ -77,9 +77,11 @@ final hskMemorizedCountProvider = FutureProvider.family<int, int>(
 );
 
 final topikMemorizedCountProvider =
-    FutureProvider.family<int, List<int>>(
-  (ref, levels) =>
-      ref.read(databaseProvider).collectionDao.getMemorizedCountByTopik(levels),
+    FutureProvider.family<int, String>(
+  (ref, levelsKey) {
+    final levels = levelsKey.split(',').map(int.parse).toList();
+    return ref.read(databaseProvider).collectionDao.getMemorizedCountByTopik(levels);
+  },
 );
 
 class CollectionsScreen extends ConsumerWidget {
@@ -368,7 +370,7 @@ class _TopikCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
-    final memAsync = ref.watch(topikMemorizedCountProvider(deck.levels));
+    final memAsync = ref.watch(topikMemorizedCountProvider(deck.levels.join(',')));
     final mem = memAsync.maybeWhen(data: (n) => n, orElse: () => 0);
     final total = deck.count;
     final pct = total > 0 ? mem / total : 0.0;

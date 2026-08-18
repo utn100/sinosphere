@@ -128,7 +128,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
 
     final word = _current;
     final displayChar = isKorean && word.hangul != null ? word.hangul! : word.simplified;
-    final guideChar = word.simplified;
+    final guideChar = isKorean && word.hangul != null ? word.hangul! : word.simplified;
     final progressLabel = _inRetryRound
         ? 'Retry ${_index + 1} of ${_words.length}'
         : '${_index + 1} of ${_words.length}';

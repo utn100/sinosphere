@@ -9,6 +9,7 @@ import '../dict_card/widgets/word_enrichment.dart' show copyToClipboard, WordEnr
 import '../dict_card/widgets/bookmark_button.dart';
 import '../graph/graph_provider.dart' show koreanGraphSearchProvider;
 import '../shell/app_shell.dart';
+import 'collections_screen.dart' show hskMemorizedCountProvider, topikMemorizedCountProvider;
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -198,6 +199,7 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
     );
     if (ok != true) return;
     await ref.read(databaseProvider).collectionDao.resetMemorized(widget.hskLevel);
+    ref.invalidate(hskMemorizedCountProvider(widget.hskLevel));
     setState(() => _memorized = {});
   }
 
@@ -958,6 +960,7 @@ class _TopikDetailScreenState extends ConsumerState<TopikDetailScreen> {
       await ref.read(databaseProvider).collectionDao
           .resetMemorizedByTopik(level);
     }
+    ref.invalidate(topikMemorizedCountProvider(widget.topikLevels.join(',')));
     setState(() => _memorized = {});
   }
 

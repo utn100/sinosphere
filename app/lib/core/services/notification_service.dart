@@ -1,5 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 import '../database/database.dart';
 import 'database_provider.dart';
 import '../../../features/dict_card/dict_card_provider.dart';
@@ -13,8 +15,10 @@ ProviderContainer? notificationContainer;
 const _notifId     = 1;
 const _channelId   = 'sinosphere_daily';
 const _channelName = 'Daily Word';
+const _notifHour   = 14; // 2pm local time
 
 Future<void> initNotifications() async {
+  tz.initializeTimeZones();
   const android = AndroidInitializationSettings('@mipmap/ic_launcher');
   const ios = DarwinInitializationSettings(
     requestAlertPermission: true,
@@ -37,6 +41,15 @@ void _onTap(NotificationResponse response) {
   notificationContainer?.read(tabIndexProvider.notifier).set(0);
 }
 
+tz.TZDateTime _nextInstanceOf(int hour) {
+  final now = tz.TZDateTime.now(tz.local);
+  var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour);
+  if (scheduled.isBefore(now)) {
+    scheduled = scheduled.add(const Duration(days: 1));
+  }
+  return scheduled;
+}
+
 Future<void> scheduleWordOfDay(ProviderContainer container) async {
   try {
     final words = await container.read(databaseProvider).collectionDao
@@ -57,16 +70,16 @@ Future<void> scheduleWordOfDay(ProviderContainer container) async {
     );
     const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
-    // Show a daily repeating notification at approximately 9am
-    // Note: periodicallyShow fires every 24h from first call.
-    // On first launch we show immediately if after 9am, or we could just show it.
-    await _plugin.periodicallyShow(
+    await _plugin.zonedSchedule(
       _notifId,
-      '${word.simplified}  ${word.hangul != null ? word.hangul! : ''}',
+      '${word.simplified}  ${word.hangul ?? ''}',
       '${word.hanViet}  ·  ${word.englishDef}',
-      RepeatInterval.daily,
+      _nextInstanceOf(_notifHour),
       details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
       payload: word.simplified,
     );
   } catch (_) {}

@@ -355,6 +355,24 @@ class _KoreanWordCard extends ConsumerWidget {
                 const Spacer(),
                 if (result.id.isNotEmpty)
                   BookmarkButton(wordId: result.id, compact: true),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => PracticeScreen(
+                      symbol:     hangul,
+                      pinyin:     romaja,
+                      hanViet:    result.hanViet,
+                      englishDef: result.englishDef,
+                    ),
+                  )),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                        color: _krColor.withAlpha(30),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.edit_outlined, color: _krColor, size: 20),
+                  ),
+                ),
               ]),
             ],
           ]),
