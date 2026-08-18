@@ -1,11 +1,11 @@
 # Sinosphere — Project Context & Build Status
 
-**App:** Vietnamese-English bilingual dictionary app for Vietnamese learners of Mandarin Chinese  
+**App:** Vietnamese-English bilingual dictionary app for Vietnamese learners of Mandarin Chinese, with Korean learner mode  
 **Core concept:** Every Chinese character has a Hán-Việt (Sino-Vietnamese) reading — cognate with the Mandarin. The app exploits this to make Chinese vocabulary immediately memorable for Vietnamese speakers. A character like 晨 (chén) maps to THẦN in Vietnamese; the component analysis (chiết tự) explains the etymology as a story in Vietnamese.  
 **Stack:** Flutter 3.47.0 · Dart 3.13 · Drift SQLite · Riverpod v3 · Multi-provider AI  
 **Package ID:** `com.sinosphere.sinosphere_rosetta`  
 **GitHub:** https://github.com/utn100/sinosphere (public)  
-**Last updated:** 2026-08-14 (enhancements: OCR, topic collections, word enrichment)
+**Last updated:** 2026-08-18
 
 ---
 
@@ -526,42 +526,135 @@ The Graph tab has a Korean content section in the HTML prototype. Implement in F
 
 ---
 
-## Phase 7 — Polish & Bug Fixes 🚧 Planned
+## Phase 7 — Polish & Bug Fixes ✅ Complete (2026-08-17)
 
-- [ ] Synonym / antonym chips tappable to open that word's sheet (currently display-only)
-- [ ] HSK deck word counts queried from DB at runtime (currently hardcoded constants)
-- [ ] Graph "My Words" filter layer (learned words rendered differently)
-- [ ] AI grammar notes / register detection in Reader
-- [ ] Finish etymology generation: HSK 7-9 at 82% → target 95%+
-- [ ] Korean reader: improve segmentation coverage (single-syllable unmatched tokens)
-- [ ] App icon + splash screen asset
-- [ ] Performance audit: startup time, Reader annotation time for long texts
+- [x] Synonym/antonym chips tappable — open full word sheet with tappable chars + bookmark
+- [x] HSK deck word counts loaded from DB at runtime (`hskWordCountProvider`)
+- [x] Korean reader segmentation improved — single-syllable tokens now matched (len ≥ 1)
+- [x] App icon — `flutter_launcher_icons`, icon.png in assets
+- [x] Splash screen — `flutter_native_splash`, dark `#0D1117` bg
+- [x] Light mode default fixed (`ThemeModeNotifier.cached = ThemeMode.light`)
+- [x] TOPIK collections loading fixed (UNION ALL subquery for SQLite ORDER BY)
+- [x] KR word sheet: Hanja chips show Chinese chars, tap switches to ZH mode
+- [x] "View in ZH Graph" button for Sino-Korean words in collections
+- [x] Radical pill resets on graph navigation
+- [x] ZH HSK/Topic collections no longer show KR layout
+- [x] Settings screen: back button added (iOS compatible)
+- [x] Reader: max-width constraint for iPad (720px centered)
+- [ ] Graph "My Words" filter layer — deferred
+- [ ] AI grammar notes in Reader — deferred
+- [ ] Finish etymology generation: HSK 7-9 at 82% — deferred
+- [ ] Performance audit — deferred
 
 ---
 
-## Phase 8 — Distribution 🚧 Planned
+## Phase 8 — Distribution 🚧 In Progress
 
-### Phase 8a — iOS build
-- CocoaPods setup + Xcode configuration
-- Add `NSCameraUsageDescription` to `Info.plist` for OCR camera access
-- Test on iOS simulator and device
+### Phase 8a — Android / Play Store ✅ Ready to submit
+- Release signing config wired via `key.properties` (gitignored)
+- Keystore: `~/sinosphere-release.jks` (keep safe — cannot update app without it)
+- AAB size: **114.5 MB** (under 150 MB limit — no Play Asset Delivery needed)
+- Privacy policy: `docs/privacy.html` → host via GitHub Pages at `utn100.github.io/sinosphere/privacy.html`
 
-### Phase 8b — Play Store submission
-- Play Asset Delivery to split 83 MB DB below 100 MB store limit
-- Finalize app icon + splash screen
-- Store listing: screenshots, description, tags
+**Build AAB for Play Store:**
+```bash
+cd app && flutter build appbundle --release
+# Output: build/app/outputs/bundle/release/app-release.aab
+```
+
+**Play Console steps:**
+1. play.google.com/console → Create app → "Sinosphere"
+2. Internal Testing → Create release → Upload AAB
+3. Content rating questionnaire → Education
+4. Privacy policy URL: `https://utn100.github.io/sinosphere/privacy.html`
+5. Add 2+ screenshots → Publish
+
+### Phase 8b — iOS / Device Testing 🚧 In Progress
+
+**Prerequisites completed (in code):**
+- `Info.plist`: `CFBundleDisplayName = Sinosphere`, `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription` added
+- `flutter_launcher_icons` + `flutter_native_splash`: `ios: true` enabled, assets generated
+- `Podfile`: `platform :ios, '15.5'` set, post_install hook enforces deployment target
+
+**Steps to build on device (manual — requires Xcode):**
+
+1. **Run pod install** (once, or after `flutter pub get`):
+```bash
+cd app/ios && pod install
+```
+
+2. **Open Xcode workspace** (must use `.xcworkspace`, not `.xcodeproj`):
+```bash
+open app/ios/Runner.xcworkspace
+```
+
+3. **Set deployment target to 15.5** (required by MLKit):
+   - Click blue **Runner** icon (top of left panel)
+   - TARGETS → Runner → Build Settings → search "deployment"
+   - Set `iOS Deployment Target` = **15.5**
+
+4. **Set signing team** (free Apple ID works for device testing):
+   - TARGETS → Runner → Signing & Capabilities
+   - Team → add Apple ID if needed → select it
+   - Xcode auto-registers the device + creates provisioning profile
+
+5. **Connect iPhone via USB** → select it as target → hit ▶ Run
+
+Or from terminal (device must be connected and trusted):
+```bash
+cd app && flutter run
+```
+
+**App Store submission** (requires paid Apple Developer account, $99/yr):
+- Archive in Xcode → Distribute App → App Store Connect
+- Add screenshots (6.5" iPhone required), description, keywords
+
+---
+
+## Phase 9 — Handwriting Practice ✅ Complete (2026-08-18)
+
+`lib/features/practice/` — canvas-based character writing practice.
+
+### Features
+- **PracticeScreen**: single-character canvas from Dict card (pencil icon on CharacterHero)
+  - Guide character shown faintly (opacity 0.07, scales by char count)
+  - Quadratic bezier stroke smoothing
+  - Stroke width slider, clear button, attempt counter
+  - Theme-aware (light/dark mode)
+
+- **DailyPracticeScreen**: 10-word session from bookmarks/memorized words
+  - English def + pinyin prompt → user writes → tap Reveal
+  - **Try again** → clears canvas, queues word for retry at end
+  - **Next →** → skips word
+  - **Got it ✓** → marks correct, advances
+  - After all words: retry round surfaces "Try again" words (purple progress bar)
+  - Session summary with score and % correct
+  - Fallback to random HSK 1-3 if fewer than 10 bookmarks
+
+- Entry points: pencil button on Dict card + "Daily Practice" banner in Decks tab
+- Works with finger, stylus, Apple Pencil on all platforms
+
+### New files
+```
+app/lib/features/practice/
+├── practice_screen.dart        ← single-char canvas
+├── daily_practice_screen.dart  ← 10-word session
+└── stroke_painter.dart         ← CustomPainter with bezier smoothing
+```
 
 ---
 
 ## Remaining Work
 
 ### Near-term
-- [ ] Rebuild APK with Phase 5+6a changes (run pipeline scripts first)
-- [ ] Run `generate_word_details.py` for HSK 1–6 pre-population
-- [ ] Phase 6b: KDict import pipeline + `korean_words` table
+- [ ] Play Store submission (Phase 8a) — AAB ready, needs Play Console setup + screenshots
+- [ ] iOS App Store — needs paid Apple Developer account ($99/yr)
+- [ ] Finish etymology generation: HSK 7-9 at 82% → target 95%+
 
-### Deferred
-- [ ] Accurate `topik_level` via real TOPIK CSV (current: HSK proxy) — Phase 6c
-- [ ] Korean Graph mode — Phase 6d
-- [ ] iOS build — Phase 8a
-- [ ] Play Store submission — Phase 8b
+### Deferred features
+- [ ] Stroke order animation (Phase 9b) — needs Make Me a Hanzi stroke path data
+- [ ] Spaced repetition (SRS) — replace simple check-off with Anki-style scheduling
+- [ ] Graph "My Words" filter layer
+- [ ] AI grammar notes in Reader
+- [ ] Play Asset Delivery (only needed if AAB exceeds 150 MB — currently 114.5 MB so not needed)
+- [ ] iPad split view (Dict + Graph side by side)
