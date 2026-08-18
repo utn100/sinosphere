@@ -551,23 +551,40 @@ The Graph tab has a Korean content section in the HTML prototype. Implement in F
 ## Phase 8 — Distribution 🚧 In Progress
 
 ### Phase 8a — Android / Play Store ✅ Ready to submit
-- Release signing config wired via `key.properties` (gitignored)
-- Keystore: `~/sinosphere-release.jks` (keep safe — cannot update app without it)
-- AAB size: **114.5 MB** (under 150 MB limit — no Play Asset Delivery needed)
-- Privacy policy: `docs/privacy.html` → host via GitHub Pages at `utn100.github.io/sinosphere/privacy.html`
 
-**Build AAB for Play Store:**
+**One-time setup (already done):**
+- Release signing config wired via `key.properties` (gitignored)
+- Keystore: `~/sinosphere-release.jks` — **back this up safely, you cannot update the app without it**
+- Password stored in `app/android/key.properties` (gitignored)
+- AAB size: **114.5 MB** (under 150 MB Play Store limit — no Play Asset Delivery needed)
+- Privacy policy: `docs/privacy.html` → enable GitHub Pages in repo settings → source: main branch `/docs`
+  URL: `https://utn100.github.io/sinosphere/privacy.html`
+
+**Build signed AAB:**
 ```bash
 cd app && flutter build appbundle --release
-# Output: build/app/outputs/bundle/release/app-release.aab
+# Output: build/app/outputs/bundle/release/app-release.aab (114.5 MB)
 ```
 
-**Play Console steps:**
-1. play.google.com/console → Create app → "Sinosphere"
-2. Internal Testing → Create release → Upload AAB
-3. Content rating questionnaire → Education
-4. Privacy policy URL: `https://utn100.github.io/sinosphere/privacy.html`
-5. Add 2+ screenshots → Publish
+**Rebuild APK (for direct device install):**
+```bash
+cd app && flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk
+```
+
+**Play Console submission steps:**
+1. Go to play.google.com/console → Create app
+2. App name: **Sinosphere** · Language: English · Free · Accept policies
+3. Left sidebar → Testing → Internal testing → Create new release
+4. Upload `app-release.aab` → Add release notes → Save
+5. Left sidebar → Store presence → Main store listing
+   - Short description (80 chars): "Learn Chinese & Korean vocabulary with Hán-Việt mnemonics"
+   - Full description: describe the app features
+   - Add at least 2 phone screenshots (1080×1920 or 16:9)
+6. Left sidebar → Policy → App content → Content rating → Start questionnaire → Education
+7. Left sidebar → Policy → App content → Privacy policy → enter `https://utn100.github.io/sinosphere/privacy.html`
+8. Left sidebar → Testing → Internal testing → publish → share test link with your device
+9. When ready for public: Promote release → Production
 
 ### Phase 8b — iOS / Device Testing 🚧 In Progress
 
