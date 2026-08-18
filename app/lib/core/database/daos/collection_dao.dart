@@ -209,6 +209,13 @@ class CollectionDao {
         SELECT id FROM compound_words WHERE topik_level = $topikLevel
       )
     ''');
+    await _db.customStatement('''
+      DELETE FROM user_collection_words
+      WHERE collection_id = '$_memorizedId'
+      AND word_id IN (
+        SELECT id FROM korean_words WHERE topik_level = $topikLevel
+      )
+    ''');
   }
 
   /// Returns ALL word IDs in the memorized collection — used by topic/shared collections.

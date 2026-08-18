@@ -9,7 +9,7 @@ import '../dict_card/widgets/word_enrichment.dart' show copyToClipboard, WordEnr
 import '../dict_card/widgets/bookmark_button.dart';
 import '../graph/graph_provider.dart' show koreanGraphSearchProvider;
 import '../shell/app_shell.dart';
-import 'collections_screen.dart' show hskMemorizedCountProvider, topikMemorizedCountProvider;
+import 'collections_screen.dart' show hskMemorizedCountProvider, topikMemorizedCountProvider, userCollectionsProvider;
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -31,8 +31,9 @@ class CollectionDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c     = context.colors;
-    final items = ref.watch(collectionItemsProvider(collectionId));
+    final c        = context.colors;
+    final items    = ref.watch(collectionItemsProvider(collectionId));
+    final isKorean = ref.watch(langModeProvider) == LangMode.korean;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -49,7 +50,17 @@ class CollectionDetailScreen extends ConsumerWidget {
         loading: () => const Center(
             child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.hanviet)),
         error: (_, _) => const SizedBox.shrink(),
-        data: (list) {
+        data: (allItems) {
+          // Filter by lang mode: ZH hides native KR words; KR hides Chinese chars with no hangul
+          final list = allItems.where((item) {
+            if (isKorean) {
+              // Hide Chinese characters and Chinese-only compound words (no hangul)
+              return item.hangul != null;
+            } else {
+              // Hide native Korean words (hangul == display, no hanViet)
+              return !(item.hanViet.isEmpty && item.hangul != null && item.hangul == item.display);
+            }
+          }).toList();
           if (list.isEmpty) {
             return Center(child: Text('No words in this deck yet.',
                 style: TextStyle(color: c.textMuted, fontStyle: FontStyle.italic)));
@@ -59,15 +70,24 @@ class CollectionDetailScreen extends ConsumerWidget {
             itemCount: list.length,
             separatorBuilder: (_, _) =>
                 Divider(height: 0.5, thickness: 0.5, color: c.border, indent: 16),
-            itemBuilder: (_, i) => _ItemRow(
-              item: list[i],
-              onTap: () => showCollectionWordSheet(context, ref,
-                display: list[i].display,
-                hanViet: list[i].hanViet,
-                pinyin: list[i].pinyin,
-                englishDef: list[i].englishDef,
-              ),
-            ),
+            itemBuilder: (_, i) {
+              final item = list[i];
+              final display = isKorean && item.hangul != null ? item.hangul! : item.display;
+              return _ItemRow(
+                item: item,
+                display: display,
+                isKorean: isKorean,
+                onTap: () => showCollectionWordSheet(context, ref,
+                  display:    display,
+                  simplified: item.display,
+                  hanViet:    item.hanViet,
+                  pinyin:     item.pinyin,
+                  englishDef: item.englishDef,
+                  hangul:     isKorean ? item.hangul : null,
+                  romaja:     isKorean ? item.pinyin : null,
+                ),
+              );
+            },
           );
         },
         ),  // SafeArea
@@ -78,8 +98,11 @@ class CollectionDetailScreen extends ConsumerWidget {
 
 class _ItemRow extends StatelessWidget {
   final CollectionItem item;
+  final String display;
+  final bool isKorean;
   final VoidCallback onTap;
-  const _ItemRow({required this.item, required this.onTap});
+  const _ItemRow({required this.item, required this.display,
+      required this.isKorean, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -91,20 +114,25 @@ class _ItemRow extends StatelessWidget {
         child: Row(children: [
           SizedBox(
             width: 48,
-            child: Text(item.display,
+            child: Text(display,
                 style: TextStyle(color: c.text,
-                    fontSize: item.display.length == 1 ? 28 : 18,
+                    fontSize: display.length == 1 ? 28 : 18,
                     fontWeight: FontWeight.w700)),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Text(item.hanViet.isEmpty ? '—' : item.hanViet,
-                  style: const TextStyle(color: AppTheme.hanviet,
-                      fontSize: 13, fontWeight: FontWeight.w800)),
-              const SizedBox(width: 8),
-              Text(item.pinyin,
-                  style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12)),
+              if (!isKorean)
+                Text(item.hanViet.isEmpty ? '—' : item.hanViet,
+                    style: const TextStyle(color: AppTheme.hanviet,
+                        fontSize: 13, fontWeight: FontWeight.w800)),
+              if (!isKorean) const SizedBox(width: 8),
+              if (!isKorean)
+                Text(item.pinyin,
+                    style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12)),
+              if (isKorean && item.pinyin.isNotEmpty)
+                Text(item.pinyin,
+                    style: const TextStyle(color: Color(0xFF818CF8), fontSize: 12)),
             ]),
             if (item.englishDef.isNotEmpty)
               Text(
@@ -176,6 +204,7 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
   Future<void> _toggleMemorized(String wordId) async {
     await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
     ref.invalidate(hskMemorizedCountProvider(widget.hskLevel));
+    ref.invalidate(userCollectionsProvider);
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -677,6 +706,7 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
 
   Future<void> _toggleMemorized(String wordId) async {
     await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
+    ref.invalidate(userCollectionsProvider);
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -948,6 +978,7 @@ class _TopikDetailScreenState extends ConsumerState<TopikDetailScreen> {
   Future<void> _toggleMemorized(String wordId) async {
     await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
     ref.invalidate(topikMemorizedCountProvider(widget.topikLevels.join(',')));
+    ref.invalidate(userCollectionsProvider);
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
