@@ -117,7 +117,15 @@ class EtymologyController {
 final etymologyControllerProvider =
     Provider<EtymologyController>((ref) => EtymologyController(ref));
 
-// Korean related compounds — keyed by (hanja string, excludeId)
+// Pending compound word to show as bottom sheet (set by notification tap)
+class PendingCompoundNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? s) => state = s;
+  void clear() => state = null;
+}
+final pendingCompoundProvider =
+    NotifierProvider<PendingCompoundNotifier, String?>(PendingCompoundNotifier.new);
 // hanja is the simplified Chinese form of the Korean word (e.g. '學校')
 final koreanRelatedProvider = FutureProvider.family<List<SearchResult>,
     ({String hanja, String excludeId})>((ref, args) {

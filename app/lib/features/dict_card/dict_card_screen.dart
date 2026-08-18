@@ -32,6 +32,30 @@ class DictCardScreen extends ConsumerWidget {
     final krWord     = ref.watch(activeKrWordProvider);
     final prevSymbol = ref.watch(previousSymbolProvider);
 
+    // Handle notification tap for compound words — open word bottom sheet
+    ref.listen<String?>(pendingCompoundProvider, (_, simplified) async {
+      if (simplified == null || simplified.isEmpty) return;
+      ref.read(pendingCompoundProvider.notifier).clear();
+      final db = ref.read(databaseProvider);
+      final word = await db.compoundDao.getBySimplified(simplified);
+      if (word == null || !context.mounted) return;
+      showModalBottomSheet(
+        context: context, isScrollControlled: true, useSafeArea: true,
+        builder: (ctx) => DraggableScrollableSheet(
+          initialChildSize: 0.5, minChildSize: 0.3, maxChildSize: 0.9,
+          expand: false,
+          builder: (_, ctrl) => _WordBottomSheet(
+            word: word,
+            scrollController: ctrl,
+            onCharTap: (ch) {
+              Navigator.pop(ctx);
+              ref.read(activeSymbolProvider.notifier).set(ch);
+            },
+          ),
+        ),
+      );
+    });
+
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(

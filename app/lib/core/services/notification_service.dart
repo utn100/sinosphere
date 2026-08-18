@@ -15,25 +15,23 @@ const _notifId     = 1;
 const _testNotifId = 2;
 const _channelId   = 'sinosphere_daily';
 const _channelName = 'Daily Word';
-const _notifHour   = 15; // 3pm
+const _notifHour   = 15; // 3pm local
 
 Future<void> initNotifications() async {
   tz.initializeTimeZones();
-  // Use device's UTC offset to approximate local timezone
+  // Match device UTC offset to a timezone location
   final offsetSeconds = DateTime.now().timeZoneOffset.inSeconds;
-  final locations = tz.timeZoneDatabase.locations;
-  // Find a location matching the device's current UTC offset
   tz.Location? match;
-  for (final loc in locations.values) {
-    final tzNow = tz.TZDateTime.now(loc);
-    if (tzNow.timeZoneOffset.inSeconds == offsetSeconds) {
+  for (final loc in tz.timeZoneDatabase.locations.values) {
+    if (tz.TZDateTime.now(loc).timeZoneOffset.inSeconds == offsetSeconds) {
       match = loc;
       break;
     }
   }
   tz.setLocalLocation(match ?? tz.UTC);
 
-  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+  // Use a monochrome white icon for Android notification bar
+  const android = AndroidInitializationSettings('@drawable/ic_notification');
   const ios = DarwinInitializationSettings(
     requestAlertPermission: true,
     requestBadgePermission: false,
@@ -42,17 +40,30 @@ Future<void> initNotifications() async {
   await _plugin.initialize(
     const InitializationSettings(android: android, iOS: ios),
     onDidReceiveNotificationResponse: _onTap,
+    onDidReceiveBackgroundNotificationResponse: _onTapBackground,
   );
   await _plugin
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.requestNotificationsPermission();
 }
 
-void _onTap(NotificationResponse response) {
-  final payload = response.payload;
+@pragma('vm:entry-point')
+void _onTapBackground(NotificationResponse response) => _handlePayload(response.payload);
+
+void _onTap(NotificationResponse response) => _handlePayload(response.payload);
+
+void _handlePayload(String? payload) {
   if (payload == null || payload.isEmpty) return;
-  notificationContainer?.read(activeSymbolProvider.notifier).set(payload);
-  notificationContainer?.read(tabIndexProvider.notifier).set(0);
+  final container = notificationContainer;
+  if (container == null) return;
+  // Multi-char = compound word → open as bottom sheet via pendingCompoundProvider
+  // Single char = character → open in dict card directly
+  if (payload.length == 1) {
+    container.read(activeSymbolProvider.notifier).set(payload);
+  } else {
+    container.read(pendingCompoundProvider.notifier).set(payload);
+  }
+  container.read(tabIndexProvider.notifier).set(0);
 }
 
 tz.TZDateTime _nextInstanceOf(int hour) {
@@ -70,7 +81,7 @@ const _notifDetails = NotificationDetails(
     channelDescription: 'Daily vocabulary word',
     importance: Importance.defaultImportance,
     priority: Priority.defaultPriority,
-    icon: '@mipmap/ic_launcher',
+    icon: 'ic_notification',
   ),
   iOS: DarwinNotificationDetails(
     presentAlert: true, presentBadge: false, presentSound: false,
@@ -85,20 +96,18 @@ Future<void> scheduleWordOfDay(ProviderContainer container) async {
     final word = words.first;
     await _plugin.cancelAll();
 
-    // Fire immediately so user can verify notifications work on this install
-    await _plugin.show(
-      _testNotifId,
-      '📖 ${word.simplified}  ${word.hangul ?? ''}',
-      '${word.hanViet}  ·  ${word.englishDef}',
-      _notifDetails,
-      payload: word.simplified,
-    );
+    final title = word.simplified.length == 1
+        ? '${word.simplified}  ${word.hanViet}'
+        : '${word.simplified}  ${word.hangul ?? ''}';
+    final body = word.englishDef;
 
-    // Schedule daily at 3pm
+    // Immediate notification for testing
+    await _plugin.show(_testNotifId, title, body, _notifDetails,
+        payload: word.simplified);
+
+    // Daily scheduled
     await _plugin.zonedSchedule(
-      _notifId,
-      '📖 ${word.simplified}  ${word.hangul ?? ''}',
-      '${word.hanViet}  ·  ${word.englishDef}',
+      _notifId, title, body,
       _nextInstanceOf(_notifHour),
       _notifDetails,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,

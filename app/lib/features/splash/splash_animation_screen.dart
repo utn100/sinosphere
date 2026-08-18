@@ -44,7 +44,7 @@ class _SplashAnimationScreenState extends State<SplashAnimationScreen>
       duration: const Duration(milliseconds: 3000),
     );
 
-    _imageFade = Tween<double>(begin: 0.6, end: 1.0).animate(
+    _imageFade = Tween<double>(begin: 1.0, end: 1.0).animate(
       CurvedAnimation(parent: _ctrl,
           curve: const Interval(0.0, 0.3, curve: Curves.easeIn)));
 
