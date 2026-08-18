@@ -19,18 +19,10 @@ const _notifHour   = 15; // 3pm local
 
 Future<void> initNotifications() async {
   tz.initializeTimeZones();
-  // Match device UTC offset to a timezone location
-  final offsetSeconds = DateTime.now().timeZoneOffset.inSeconds;
-  tz.Location? match;
-  for (final loc in tz.timeZoneDatabase.locations.values) {
-    if (tz.TZDateTime.now(loc).timeZoneOffset.inSeconds == offsetSeconds) {
-      match = loc;
-      break;
-    }
-  }
-  tz.setLocalLocation(match ?? tz.UTC);
+  // Use UTC as local — zonedSchedule with matchDateTimeComponents.time
+  // fires at the correct local time because the OS handles DST/offsets
+  tz.setLocalLocation(tz.UTC);
 
-  // Use a monochrome white icon for Android notification bar
   const android = AndroidInitializationSettings('@drawable/ic_notification');
   const ios = DarwinInitializationSettings(
     requestAlertPermission: true,
@@ -67,9 +59,16 @@ void _handlePayload(String? payload) {
 }
 
 tz.TZDateTime _nextInstanceOf(int hour) {
-  final now = tz.TZDateTime.now(tz.local);
-  var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour);
-  if (scheduled.isBefore(now)) {
+  // Schedule in device local time — offset from UTC
+  final now = DateTime.now();
+  final offset = now.timeZoneOffset;
+  final nowUtc = tz.TZDateTime.now(tz.UTC);
+  // Target time in local terms, expressed as UTC offset
+  var scheduled = tz.TZDateTime(tz.UTC,
+      nowUtc.year, nowUtc.month, nowUtc.day,
+      hour, 0, 0)
+      .subtract(offset);
+  if (scheduled.isBefore(nowUtc)) {
     scheduled = scheduled.add(const Duration(days: 1));
   }
   return scheduled;

@@ -16,7 +16,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Read prefs synchronously — fast
+  // Read prefs — fast (~5ms)
   final prefs = await SharedPreferences.getInstance();
   final storedLang  = prefs.getString('sinosphere_lang_mode');
   final storedTheme = prefs.getString('sinosphere_theme_mode');
@@ -25,14 +25,10 @@ void main() async {
   if (storedTheme == 'light')  ThemeModeNotifier.cached = ThemeMode.light;
   if (storedTheme == 'system') ThemeModeNotifier.cached = ThemeMode.system;
 
-  await initNotifications();
-
-  // Show app immediately with loading screen — DB loads in background
-  // This lets the native splash transition smoothly and shows splashscreen
-  // while the 93MB DB is being copied on first install
+  // Show loading screen immediately — native splash transitions to Flutter frame
   runApp(const _LoadingApp());
 
-  // Copy DB in background (only on first install)
+  // DB copy (slow on first install) runs after first frame is visible
   final db = await openDatabase();
 
   final container = ProviderContainer(
@@ -40,34 +36,28 @@ void main() async {
   );
   notificationContainer = container;
 
-  // Replace loading app with real app
+  // Notifications initialise in background — never block the UI
+  initNotifications().then((_) => scheduleWordOfDay(container));
+
+  // Replace loading screen with real app
   runApp(UncontrolledProviderScope(
     container: container,
     child: const SinosphereApp(),
   ));
-
-  scheduleWordOfDay(container);
 }
 
-/// Shown while DB is loading — matches splashscreen colors exactly
+/// Shown while DB is loading — matches splashscreen colors
 class _LoadingApp extends StatelessWidget {
   const _LoadingApp();
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        backgroundColor: const Color(0xFF0D1117),
-        body: Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Image.asset('assets/splashscreen.png',
-                width: MediaQuery.of(context).size.width,
-                fit: BoxFit.contain),
-          ]),
-        ),
+        backgroundColor: Color(0xFF0D1117),
+        body: SizedBox.expand(),
       ),
     );
   }
 }
-
