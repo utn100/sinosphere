@@ -9,16 +9,30 @@ import '../../../features/shell/app_shell.dart';
 
 final _plugin = FlutterLocalNotificationsPlugin();
 
-// Set in main.dart so notification tap can navigate via Riverpod
 ProviderContainer? notificationContainer;
 
 const _notifId     = 1;
+const _testNotifId = 2;
 const _channelId   = 'sinosphere_daily';
 const _channelName = 'Daily Word';
-const _notifHour   = 14; // 2pm local time
+const _notifHour   = 15; // 3pm
 
 Future<void> initNotifications() async {
   tz.initializeTimeZones();
+  // Use device's UTC offset to approximate local timezone
+  final offsetSeconds = DateTime.now().timeZoneOffset.inSeconds;
+  final locations = tz.timeZoneDatabase.locations;
+  // Find a location matching the device's current UTC offset
+  tz.Location? match;
+  for (final loc in locations.values) {
+    final tzNow = tz.TZDateTime.now(loc);
+    if (tzNow.timeZoneOffset.inSeconds == offsetSeconds) {
+      match = loc;
+      break;
+    }
+  }
+  tz.setLocalLocation(match ?? tz.UTC);
+
   const android = AndroidInitializationSettings('@mipmap/ic_launcher');
   const ios = DarwinInitializationSettings(
     requestAlertPermission: true,
@@ -50,6 +64,19 @@ tz.TZDateTime _nextInstanceOf(int hour) {
   return scheduled;
 }
 
+const _notifDetails = NotificationDetails(
+  android: AndroidNotificationDetails(
+    _channelId, _channelName,
+    channelDescription: 'Daily vocabulary word',
+    importance: Importance.defaultImportance,
+    priority: Priority.defaultPriority,
+    icon: '@mipmap/ic_launcher',
+  ),
+  iOS: DarwinNotificationDetails(
+    presentAlert: true, presentBadge: false, presentSound: false,
+  ),
+);
+
 Future<void> scheduleWordOfDay(ProviderContainer container) async {
   try {
     final words = await container.read(databaseProvider).collectionDao
@@ -58,29 +85,29 @@ Future<void> scheduleWordOfDay(ProviderContainer container) async {
     final word = words.first;
     await _plugin.cancelAll();
 
-    const androidDetails = AndroidNotificationDetails(
-      _channelId, _channelName,
-      channelDescription: 'Daily vocabulary word',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-      icon: '@mipmap/ic_launcher',
+    // Fire immediately so user can verify notifications work on this install
+    await _plugin.show(
+      _testNotifId,
+      '📖 ${word.simplified}  ${word.hangul ?? ''}',
+      '${word.hanViet}  ·  ${word.englishDef}',
+      _notifDetails,
+      payload: word.simplified,
     );
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true, presentBadge: false, presentSound: false,
-    );
-    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
+    // Schedule daily at 3pm
     await _plugin.zonedSchedule(
       _notifId,
-      '${word.simplified}  ${word.hangul ?? ''}',
+      '📖 ${word.simplified}  ${word.hangul ?? ''}',
       '${word.hanViet}  ·  ${word.englishDef}',
       _nextInstanceOf(_notifHour),
-      details,
+      _notifDetails,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: word.simplified,
     );
-  } catch (_) {}
+  } catch (e) {
+    print('Notification error: $e');
+  }
 }
