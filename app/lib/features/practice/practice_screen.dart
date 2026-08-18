@@ -116,8 +116,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
         ),
 
         // Toolbar
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        SafeArea(
+          top: false,
+          child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
           color: c.bg,
           child: Row(children: [
             Icon(Icons.edit, color: c.textMuted, size: 16),
@@ -166,7 +168,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
               ),
             ),
           ]),
-        ),
+        ),  // Container
+        ),  // SafeArea
       ]),
     );
   }

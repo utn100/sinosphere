@@ -64,9 +64,8 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
   void _reveal() => setState(() => _revealed = true);
 
   void _tryAgain() {
-    // Add to retry queue, advance to next word, reset canvas
-    _retryQueue.add(_current);
-    _advanceOrFinish(markCorrect: false, addToRetry: false);
+    // Stay on same word — just clear canvas and hide the revealed answer
+    setState(() { _strokes.clear(); _currentStroke = null; _revealed = false; });
   }
 
   void _gotIt() => _advanceOrFinish(markCorrect: true, addToRetry: false);
@@ -232,8 +231,10 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
         ),
 
         // Toolbar
-        Container(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+        SafeArea(
+          top: false,
+          child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           color: c.bg,
           child: _revealed
               ? Row(children: [
@@ -343,7 +344,8 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
                     ),
                   ),
                 ]),
-        ),
+        ),  // Container
+        ),  // SafeArea
       ]),
     );
   }
