@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/database/database.dart';
 import '../../core/services/database_provider.dart';
 import '../../core/services/lang_mode_provider.dart';
@@ -34,19 +36,68 @@ class SinosphereSearchBar extends ConsumerStatefulWidget {
 }
 
 class _SinosphereSearchBarState extends ConsumerState<SinosphereSearchBar> {
+  static const _historyKey = 'sinosphere_search_history';
+  static const _maxHistory = 10;
+
   final _controller = TextEditingController();
   final _focusNode  = FocusNode();
 
   Timer? _debounce;
   List<SearchResult> _results   = [];
+  List<SearchResult> _history   = [];
   bool   _loading               = false;
+  bool   _focused               = false;
   String? _error;
   bool   _showResults           = false;
-  SearchResult? _lastResult;   // persists as chip after sheet is dismissed
+  SearchResult? _lastResult;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+    _loadHistory();
+  }
+
+  void _onFocusChange() {
+    setState(() => _focused = _focusNode.hasFocus);
+  }
+
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_historyKey) ?? [];
+    final parsed = raw.map((s) {
+      try {
+        final m = jsonDecode(s) as Map<String, dynamic>;
+        return SearchResult(
+          id: m['id'] as String? ?? '',
+          simplified: m['simplified'] as String? ?? '',
+          pinyin: m['pinyin'] as String? ?? '',
+          hanViet: m['hanViet'] as String? ?? '',
+          englishDef: m['englishDef'] as String? ?? '',
+          hangul: m['hangul'] as String?,
+          romaja: m['romaja'] as String?,
+        );
+      } catch (_) { return null; }
+    }).whereType<SearchResult>().toList();
+    if (mounted) setState(() => _history = parsed);
+  }
+
+  Future<void> _saveToHistory(SearchResult item) async {
+    if (item.simplified.isEmpty) return;
+    final updated = [item, ..._history.where((h) => h.id != item.id)].take(_maxHistory).toList();
+    setState(() => _history = updated);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_historyKey, updated.map((r) => jsonEncode({
+      'id': r.id, 'simplified': r.simplified, 'pinyin': r.pinyin,
+      'hanViet': r.hanViet, 'englishDef': r.englishDef,
+      'hangul': r.hangul, 'romaja': r.romaja,
+    })).toList());
+  }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _focusNode.removeListener(_onFocusChange);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -110,6 +161,7 @@ class _SinosphereSearchBarState extends ConsumerState<SinosphereSearchBar> {
         : item.simplified;
     setState(() { _showResults = false; _lastResult = item; });
     _focusNode.unfocus();
+    _saveToHistory(item);
     widget.onResultSelected(item);
   }
 
@@ -123,6 +175,7 @@ class _SinosphereSearchBarState extends ConsumerState<SinosphereSearchBar> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final showHistory = _focused && _controller.text.isEmpty && _history.isNotEmpty;
     return Column(
       children: [
         TextField(
@@ -145,9 +198,53 @@ class _SinosphereSearchBarState extends ConsumerState<SinosphereSearchBar> {
                 : null,
           ),
         ),
-        if (_showResults) _buildDropdown(c),
-        if (!_showResults && _lastResult != null) _buildChip(c),
+        if (showHistory) _buildHistory(c),
+        if (_showResults && !showHistory) _buildDropdown(c),
+        if (!_showResults && !showHistory && _lastResult != null) _buildChip(c),
       ],
+    );
+  }
+
+  Widget _buildHistory(dynamic c) {
+    final langMode = ref.watch(langModeProvider);
+    final isKorean = langMode == LangMode.korean;
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: c.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.border, width: 0.5),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.history, size: 13, color: c.textMuted),
+          const SizedBox(width: 4),
+          Text('Recent', style: TextStyle(color: c.textMuted, fontSize: 11,
+              fontWeight: FontWeight.w600)),
+        ]),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6, runSpacing: 6,
+          children: _history.map((r) {
+            final display = isKorean && r.hangul != null ? r.hangul! : r.simplified;
+            return GestureDetector(
+              onTap: () { _onSelect(r); },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: c.surf,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: c.border),
+                ),
+                child: Text(display,
+                    style: TextStyle(color: c.text, fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+              ),
+            );
+          }).toList(),
+        ),
+      ]),
     );
   }
 

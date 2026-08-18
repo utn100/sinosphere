@@ -129,6 +129,36 @@ class CollectionDao {
     return rows.map((r) => r.read<String>('word_id')).toSet();
   }
 
+  Future<int> getMemorizedCountByHsk(int level) async {
+    final row = await _db.customSelect('''
+      SELECT COUNT(*) as cnt FROM user_collection_words ucw
+      JOIN compound_words cw ON cw.id = ucw.word_id
+      WHERE ucw.collection_id = ? AND cw.hsk_level = ?
+    ''', variables: [const Variable(_memorizedId), Variable(level)],
+        readsFrom: {_db.userCollectionWords, _db.compoundWords}).getSingle();
+    return row.read<int>('cnt');
+  }
+
+  Future<int> getMemorizedCountByTopik(List<int> levels) async {
+    final placeholders = levels.map((_) => '?').join(', ');
+    final r1 = await _db.customSelect(
+      'SELECT COUNT(*) as cnt FROM user_collection_words ucw '
+      'JOIN compound_words cw ON cw.id = ucw.word_id '
+      'WHERE ucw.collection_id = ? AND cw.topik_level IN ($placeholders) '
+      'AND cw.topik_in_source = 1 AND LENGTH(cw.hangul) >= 2',
+      variables: [const Variable(_memorizedId), ...levels.map(Variable.new)],
+      readsFrom: {_db.userCollectionWords, _db.compoundWords},
+    ).getSingle();
+    final r2 = await _db.customSelect(
+      'SELECT COUNT(*) as cnt FROM user_collection_words ucw '
+      'JOIN korean_words kw ON kw.id = ucw.word_id '
+      'WHERE ucw.collection_id = ? AND kw.topik_level IN ($placeholders)',
+      variables: [const Variable(_memorizedId), ...levels.map(Variable.new)],
+      readsFrom: {_db.userCollectionWords, _db.koreanWords},
+    ).getSingle();
+    return r1.read<int>('cnt') + r2.read<int>('cnt');
+  }
+
   Future<void> toggleMemorized(String wordId) async {
     await _ensureMemorizedCollection();
     final existing = await (_db.select(_db.userCollectionWords)

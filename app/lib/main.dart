@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/database/database.dart';
 import 'core/services/database_provider.dart';
 import 'core/services/lang_mode_provider.dart';
+import 'core/services/notification_service.dart';
 import 'app.dart';
 
 void main() async {
@@ -29,10 +30,18 @@ void main() async {
 
   final db = await dbFuture;
 
-  runApp(
-    ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(db)],
-      child: const SinosphereApp(),
-    ),
+  final container = ProviderContainer(
+    overrides: [databaseProvider.overrideWithValue(db)],
   );
+  notificationContainer = container;
+
+  await initNotifications();
+
+  runApp(UncontrolledProviderScope(
+    container: container,
+    child: const SinosphereApp(),
+  ));
+
+  // Schedule daily word notification after app is running
+  scheduleWordOfDay(container);
 }

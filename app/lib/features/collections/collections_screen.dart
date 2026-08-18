@@ -71,6 +71,17 @@ final hskWordCountProvider = FutureProvider.family<int, int>(
       ref.read(databaseProvider).collectionDao.getHskWordCount(level),
 );
 
+final hskMemorizedCountProvider = FutureProvider.family<int, int>(
+  (ref, level) =>
+      ref.read(databaseProvider).collectionDao.getMemorizedCountByHsk(level),
+);
+
+final topikMemorizedCountProvider =
+    FutureProvider.family<int, List<int>>(
+  (ref, levels) =>
+      ref.read(databaseProvider).collectionDao.getMemorizedCountByTopik(levels),
+);
+
 class CollectionsScreen extends ConsumerWidget {
   const CollectionsScreen({super.key});
 
@@ -302,6 +313,9 @@ class _HskCard extends ConsumerWidget {
     final c = context.colors;
     final countAsync = ref.watch(hskWordCountProvider(deck.level));
     final count = countAsync.maybeWhen(data: (n) => n, orElse: () => deck.count);
+    final memAsync = ref.watch(hskMemorizedCountProvider(deck.level));
+    final mem = memAsync.maybeWhen(data: (n) => n, orElse: () => 0);
+    final pct = count > 0 ? mem / count : 0.0;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -323,6 +337,22 @@ class _HskCard extends ConsumerWidget {
           Text(deck.desc,
               style: TextStyle(color: c.textMuted, fontSize: 9),
               textAlign: TextAlign.center),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 3,
+                backgroundColor: deck.color.withAlpha(30),
+                color: deck.color,
+              ),
+            ),
+          ),
+          Text('${(pct * 100).round()}%',
+              style: TextStyle(color: deck.color, fontSize: 8,
+                  fontWeight: FontWeight.w700)),
         ],
       ),
     ),
@@ -330,14 +360,18 @@ class _HskCard extends ConsumerWidget {
   }
 }
 
-class _TopikCard extends StatelessWidget {
+class _TopikCard extends ConsumerWidget {
   final ({int level, List<int> levels, String band, int count, Color color, String desc}) deck;
   final VoidCallback? onTap;
   const _TopikCard({required this.deck, this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final memAsync = ref.watch(topikMemorizedCountProvider(deck.levels));
+    final mem = memAsync.maybeWhen(data: (n) => n, orElse: () => 0);
+    final total = deck.count;
+    final pct = total > 0 ? mem / total : 0.0;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -358,6 +392,22 @@ class _TopikCard extends StatelessWidget {
           Text(deck.desc,
               style: TextStyle(color: c.textMuted, fontSize: 9),
               textAlign: TextAlign.center),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 3,
+                backgroundColor: deck.color.withAlpha(30),
+                color: deck.color,
+              ),
+            ),
+          ),
+          Text('${(pct * 100).round()}%',
+              style: TextStyle(color: deck.color, fontSize: 8,
+                  fontWeight: FontWeight.w700)),
         ],
       ),
     ),  // GestureDetector
