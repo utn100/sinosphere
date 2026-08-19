@@ -672,4 +672,32 @@ class CollectionDao {
         readsFrom: {_db.compoundWords, _db.koreanWords}).get();
     return rows.map(_topikRowToWord).toList();
   }
+
+  /// Random KR word for the daily-word notification. Stricter than
+  /// getRandomKrPracticeWords: Sino-Korean words must be kr_verified (matching
+  /// KR search/graph validity), so every notified word renders fully in the KR
+  /// dict card. Native Korean words come from korean_words as before.
+  Future<List<CompoundWord>> getRandomKrNotifWord() async {
+    final rows = await _db.customSelect('''
+      SELECT * FROM (
+        SELECT id, simplified, NULL as traditional, pinyin, hangul, han_viet,
+               'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
+               NULL as hsk_level, frequency_rank, 'sino_chinese' as origin_type,
+               0 as is_cognate_anchor, 0 as ai_generated
+        FROM compound_words
+        WHERE kr_verified = 1 AND LENGTH(hangul) >= 2
+        UNION ALL
+        SELECT id, hangul as simplified, NULL as traditional,
+               COALESCE(romaja,'') as pinyin, hangul, '' as han_viet,
+               'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
+               NULL as hsk_level, frequency_rank, 'native_korean' as origin_type,
+               0 as is_cognate_anchor, 0 as ai_generated
+        FROM korean_words
+        WHERE topik_level IS NOT NULL
+      )
+      ORDER BY RANDOM() LIMIT 1
+    ''', variables: const [],
+        readsFrom: {_db.compoundWords, _db.koreanWords}).get();
+    return rows.map(_topikRowToWord).toList();
+  }
 }

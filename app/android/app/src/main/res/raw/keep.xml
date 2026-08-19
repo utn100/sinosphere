@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The notification icon is referenced only from Dart code (as the string
+  'ic_notification'), so the Android build tools cannot see the reference and
+  strip it from release builds, causing:
+    PlatformException(invalid_icon, The resource @drawable/ic_notification
+    could not be found...)
+  This keep rule forces the resource to be retained and prevents its raster
+  from being crunched/removed. shrinkMode="strict" ensures only explicitly
+  referenced/kept resources are shrunk.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_notification"
+    tools:shrinkMode="safe" />

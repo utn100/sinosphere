@@ -117,15 +117,17 @@ class EtymologyController {
 final etymologyControllerProvider =
     Provider<EtymologyController>((ref) => EtymologyController(ref));
 
-// Pending compound word to show as bottom sheet (set by notification tap)
-class PendingCompoundNotifier extends Notifier<String?> {
+// Structured notification-tap payload ('kind|value', e.g. 'zh|晨', 'krn|<id>',
+// 'krs|<id>'). Consumed by dict_card_screen, which parses it, aligns the
+// language mode, and populates the right provider (activeSymbol / activeKrWord).
+class PendingNotifWordNotifier extends Notifier<String?> {
   @override
   String? build() => null;
   void set(String? s) => state = s;
   void clear() => state = null;
 }
-final pendingCompoundProvider =
-    NotifierProvider<PendingCompoundNotifier, String?>(PendingCompoundNotifier.new);
+final pendingNotifWordProvider =
+    NotifierProvider<PendingNotifWordNotifier, String?>(PendingNotifWordNotifier.new);
 // hanja is the simplified Chinese form of the Korean word (e.g. '學校')
 final koreanRelatedProvider = FutureProvider.family<List<SearchResult>,
     ({String hanja, String excludeId})>((ref, args) {

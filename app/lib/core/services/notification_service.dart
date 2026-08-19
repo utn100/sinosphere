@@ -1,14 +1,31 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
-import '../database/database.dart';
 import 'database_provider.dart';
 import '../../../features/dict_card/dict_card_provider.dart';
 import '../../../features/shell/app_shell.dart';
+import '../../app.dart' show rootScaffoldMessengerKey;
 
 final _plugin = FlutterLocalNotificationsPlugin();
+bool _initialized = false;
+
+/// When true, notification progress/errors are surfaced on-screen via SnackBar.
+/// print() is stripped from Flutter release builds, so this is the only way to
+/// diagnose release-only notification failures on a device without adb.
+bool notifDebugToUi = false;
+
+void _diag(String msg) {
+  print('[NOTIF] $msg'); // stripped in release, kept for debug/logcat
+  if (!notifDebugToUi) return;
+  final messenger = rootScaffoldMessengerKey.currentState;
+  messenger?.showSnackBar(SnackBar(
+    content: Text('[NOTIF] $msg'),
+    duration: const Duration(seconds: 4),
+  ));
+}
 
 ProviderContainer? notificationContainer;
 
@@ -45,15 +62,37 @@ Future<void> initNotifications() async {
 void _onTapBackground(NotificationResponse r) => _handlePayload(r.payload);
 void _onTap(NotificationResponse r)           => _handlePayload(r.payload);
 
+/// Requests the Android 13+ POST_NOTIFICATIONS runtime permission.
+/// Isolated in its own guard so it always runs regardless of what happens
+/// in the scheduling logic — this is what shows the system dialog on first
+/// install. Returns whatever the platform reports (null on iOS / pre-33).
+Future<bool?> requestNotificationPermission() async {
+  try {
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (android == null) {
+      print('[NOTIF] no Android impl resolved');
+      return null;
+    }
+    final granted = await android.requestNotificationsPermission();
+    _diag('permission granted=$granted');
+    return granted;
+  } catch (e, st) {
+    _diag('requestPermission ERROR: $e');
+    print('[NOTIF] requestNotificationPermission ERROR: $e\n$st');
+    return null;
+  }
+}
+
 void _handlePayload(String? payload) {
   if (payload == null || payload.isEmpty) return;
   final c = notificationContainer;
   if (c == null) return;
-  if (payload.length == 1) {
-    c.read(activeSymbolProvider.notifier).set(payload);
-  } else {
-    c.read(pendingCompoundProvider.notifier).set(payload);
-  }
+  // Payload is a structured 'kind|value' string (see scheduleWordOfDay). Hand it
+  // to the Dict screen, which has DB + BuildContext to resolve it and align the
+  // language mode. Legacy plain-string payloads fall through here too and are
+  // treated as a ZH lookup by dict_card_screen's parser.
+  c.read(pendingNotifWordProvider.notifier).set(payload);
   c.read(tabIndexProvider.notifier).set(0);
 }
 
@@ -76,6 +115,9 @@ const _notifDetails = NotificationDetails(
     importance: Importance.defaultImportance,
     priority: Priority.defaultPriority,
     icon: 'ic_notification',
+    // Full-color app icon shown as the large thumbnail on the right.
+    // (The small status-bar icon must stay a monochrome silhouette.)
+    largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
   ),
   iOS: DarwinNotificationDetails(
     presentAlert: true, presentBadge: false, presentSound: false,
@@ -84,39 +126,92 @@ const _notifDetails = NotificationDetails(
 
 Future<void> scheduleWordOfDay(ProviderContainer container) async {
   try {
-    // Request permission here (non-blocking, activity is already active)
-    await _plugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+    _diag('start, _initialized=$_initialized');
+    if (!_initialized) {
+      await initNotifications();
+      _initialized = true;
+      _diag('initNotifications done');
+    }
+    // Request permission FIRST, in its own guarded block, so a failure anywhere
+    // in the scheduling logic below can never prevent the dialog from appearing.
+    // (In release/R8 builds a swallowed exception later was hiding this call.)
+    await requestNotificationPermission();
 
     final prefs   = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(kNotifEnabled) ?? true;
     final hour    = prefs.getInt(kNotifHour)     ?? 15;
     final onOpen  = prefs.getBool(kNotifOnOpen)  ?? true;
+    // Follow the app's current language mode (persisted in SharedPreferences,
+    // since this may run before any provider is available).
+    final isKorean = prefs.getString('sinosphere_lang_mode') == 'korean';
+    print('[NOTIF] enabled=$enabled hour=$hour onOpen=$onOpen korean=$isKorean');
 
     if (!enabled) {
       await _plugin.cancelAll();
       return;
     }
 
-    final words = await container.read(databaseProvider).collectionDao
-        .getRandomPracticeWords(1);
+    final dao = container.read(databaseProvider).collectionDao;
+    final words = isKorean
+        ? await dao.getRandomKrNotifWord()
+        : await dao.getRandomPracticeWords(1);
+    print('[NOTIF] words=${words.length}');
     if (words.isEmpty) return;
     final word  = words.first;
+    print('[NOTIF] word=${word.simplified}');
     await _plugin.cancelAll();
 
-    final title = word.simplified.length == 1
-        ? '${word.simplified}  ${word.hanViet}'
-        : '${word.simplified}  ${word.hangul ?? ''}';
-    final body = word.englishDef;
+    // Rotating encouraging tagline, chosen by day-of-year so it stays stable
+    // within a day but changes over time (no Math.random in this codebase path).
+    const taglines = [
+      'Word of the day 📚',
+      "Today's word ✨",
+      'Time to learn! 🌱',
+      'Your daily word is here 🔤',
+      'Keep your streak going 🔥',
+    ];
+    final dayOfYear = DateTime.now()
+        .difference(DateTime(DateTime.now().year)).inDays;
+    final tagline = taglines[dayOfYear % taglines.length];
+
+    // Tagline only in the title so it never gets truncated. Body layout:
+    //   ZH mode: <word> <pinyin> · <english def>
+    //   KR mode: <hangul word> · <english def>   (no reading)
+    final title = tagline;
+    final String body;
+    if (isKorean) {
+      body = '${word.simplified} · ${word.englishDef}';
+    } else {
+      final pinyin = word.pinyin;
+      body = pinyin.isNotEmpty
+          ? '${word.simplified} $pinyin · ${word.englishDef}'
+          : '${word.simplified} · ${word.englishDef}';
+    }
+
+    // Structured tap payload so the Dict screen can align language mode and
+    // look the word up unambiguously (see _handlePayload + dict_card_screen):
+    //   ZH        -> 'zh|<simplified>'
+    //   KR native -> 'krn|<id>'   (lookup in korean_words)
+    //   KR sino   -> 'krs|<id>'   (lookup in compound_words)
+    final String payload;
+    if (!isKorean) {
+      payload = 'zh|${word.simplified}';
+    } else if (word.originType == 'native_korean') {
+      payload = 'krn|${word.id}';
+    } else {
+      payload = 'krs|${word.id}';
+    }
 
     // Immediate notification on app open (if enabled)
     if (onOpen) {
+      _diag('calling show()');
       await _plugin.show(_testNotifId, title, body, _notifDetails,
-          payload: word.simplified);
+          payload: payload);
+      _diag('show() done');
     }
 
     // Daily scheduled notification
+    _diag('calling zonedSchedule() at ${_nextInstanceOf(hour)}');
     await _plugin.zonedSchedule(
       _notifId, title, body,
       _nextInstanceOf(hour),
@@ -125,9 +220,11 @@ Future<void> scheduleWordOfDay(ProviderContainer container) async {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
-      payload: word.simplified,
+      payload: payload,
     );
-  } catch (e) {
-    print('Notification error: $e');
+    _diag('scheduled OK');
+  } catch (e, st) {
+    _diag('ERROR: $e');
+    print('[NOTIF] ERROR: $e\n$st');
   }
 }

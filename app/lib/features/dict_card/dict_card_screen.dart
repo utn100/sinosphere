@@ -32,28 +32,43 @@ class DictCardScreen extends ConsumerWidget {
     final krWord     = ref.watch(activeKrWordProvider);
     final prevSymbol = ref.watch(previousSymbolProvider);
 
-    // Handle notification tap for compound words — open word bottom sheet
-    ref.listen<String?>(pendingCompoundProvider, (_, simplified) async {
-      if (simplified == null || simplified.isEmpty) return;
-      ref.read(pendingCompoundProvider.notifier).clear();
+    // Handle notification tap. Payload is 'kind|value' (see notification_service):
+    //   zh|<simplified>  -> ZH mode; single char -> activeSymbol, else word sheet
+    //   krs|<id>         -> KR mode; Sino-Korean word from compound_words
+    //   krn|<id>         -> KR mode; native word from korean_words
+    ref.listen<String?>(pendingNotifWordProvider, (_, raw) async {
+      if (raw == null || raw.isEmpty) return;
+      ref.read(pendingNotifWordProvider.notifier).clear();
+      final sep   = raw.indexOf('|');
+      final kind  = sep >= 0 ? raw.substring(0, sep) : 'zh';
+      final value = sep >= 0 ? raw.substring(sep + 1) : raw;
+      if (value.isEmpty) return;
       final db = ref.read(databaseProvider);
-      final word = await db.compoundDao.getBySimplified(simplified);
-      if (word == null || !context.mounted) return;
-      showModalBottomSheet(
-        context: context, isScrollControlled: true, useSafeArea: true,
-        builder: (ctx) => DraggableScrollableSheet(
-          initialChildSize: 0.5, minChildSize: 0.3, maxChildSize: 0.9,
-          expand: false,
-          builder: (_, ctrl) => _WordBottomSheet(
-            word: word,
-            scrollController: ctrl,
-            onCharTap: (ch) {
-              Navigator.pop(ctx);
-              ref.read(activeSymbolProvider.notifier).set(ch);
-            },
-          ),
-        ),
-      );
+
+      switch (kind) {
+        case 'krs': // Sino-Korean compound
+          final w = await db.compoundDao.getById(value);
+          if (w == null) return;
+          ref.read(langModeProvider.notifier).set(LangMode.korean);
+          ref.read(activeKrWordProvider.notifier).set(_krResultFromCompound(w));
+          return;
+        case 'krn': // native Korean word
+          final w = await db.compoundDao.getKoreanWordById(value);
+          if (w == null) return;
+          ref.read(langModeProvider.notifier).set(LangMode.korean);
+          ref.read(activeKrWordProvider.notifier).set(_krResultFromKorean(w));
+          return;
+        default: // 'zh' (or legacy plain payload)
+          ref.read(langModeProvider.notifier).set(LangMode.chinese);
+          if (value.length == 1) {
+            ref.read(activeSymbolProvider.notifier).set(value);
+            return;
+          }
+          final word = await db.compoundDao.getBySimplified(value);
+          if (word == null || !context.mounted) return;
+          _showZhWordSheet(context, ref, word);
+          return;
+      }
     });
 
     return Scaffold(
@@ -156,6 +171,61 @@ class DictCardScreen extends ConsumerWidget {
       ),
     );
   }
+
+  // ZH compound-word bottom sheet opened from a notification tap. Tapping a
+  // character switches to ZH mode (fixes the case where a tap left the card on
+  // the KR branch and showed nothing until a manual toggle).
+  void _showZhWordSheet(BuildContext context, WidgetRef ref, CompoundWord word) {
+    showModalBottomSheet(
+      context: context, isScrollControlled: true, useSafeArea: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.5, minChildSize: 0.3, maxChildSize: 0.9,
+        expand: false,
+        builder: (_, ctrl) => _WordBottomSheet(
+          word: word,
+          scrollController: ctrl,
+          onCharTap: (ch) {
+            Navigator.pop(ctx);
+            ref.read(langModeProvider.notifier).set(LangMode.chinese);
+            ref.read(activeSymbolProvider.notifier).set(ch);
+          },
+        ),
+      ),
+    );
+  }
+
+  // Map a Sino-Korean CompoundWord to the SearchResult the KR card renders.
+  SearchResult _krResultFromCompound(CompoundWord w) => SearchResult(
+        id: w.id,
+        simplified: w.simplified,
+        pinyin: w.pinyin,
+        hanViet: w.hanViet,
+        englishDef: w.englishDef,
+        hskLevel: w.hskLevel,
+        frequencyRank: w.frequencyRank,
+        hangul: w.hangul,
+        romaja: null,
+        pos: w.pos,
+        isNativeKorean: false,
+      );
+
+  // Map a native KoreanWord to the SearchResult the KR card renders.
+  SearchResult _krResultFromKorean(KoreanWord w) => SearchResult(
+        id: w.id,
+        simplified: w.hangul,
+        pinyin: '',
+        hanViet: '',
+        englishDef: w.englishDef,
+        frequencyRank: w.frequencyRank,
+        hangul: w.hangul,
+        romaja: w.romaja,
+        topikLevel: w.topikLevel,
+        pos: w.pos,
+        isNativeKorean: true,
+        krSynonyms: w.synonyms,
+        krAntonyms: w.antonyms,
+        krExample: w.exampleSentence,
+      );
 }
 
 // ── Search result word sheet ──────────────────────────────────────────────────
