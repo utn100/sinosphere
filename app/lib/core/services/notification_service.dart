@@ -37,9 +37,8 @@ Future<void> initNotifications() async {
     onDidReceiveNotificationResponse: _onTap,
     onDidReceiveBackgroundNotificationResponse: _onTapBackground,
   );
-  await _plugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-      ?.requestNotificationsPermission();
+  // Note: Android 13+ permission is requested automatically on first show()
+  // Do NOT await requestNotificationsPermission() here — it blocks the UI
 }
 
 @pragma('vm:entry-point')
@@ -85,6 +84,11 @@ const _notifDetails = NotificationDetails(
 
 Future<void> scheduleWordOfDay(ProviderContainer container) async {
   try {
+    // Request permission here (non-blocking, activity is already active)
+    await _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+
     final prefs   = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(kNotifEnabled) ?? true;
     final hour    = prefs.getInt(kNotifHour)     ?? 15;
