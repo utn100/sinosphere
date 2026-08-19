@@ -9,6 +9,7 @@ import '../dict_card/widgets/word_enrichment.dart' show copyToClipboard, WordEnr
 import '../dict_card/widgets/bookmark_button.dart';
 import '../graph/graph_provider.dart' show koreanGraphSearchProvider;
 import '../shell/app_shell.dart';
+import '../practice/practice_screen.dart';
 import 'collections_screen.dart' show hskMemorizedCountProvider, topikMemorizedCountProvider, userCollectionsProvider;
 
 const _memorizedCollectionId = 'memorized';
@@ -504,8 +505,27 @@ class _CollectionWordSheet extends StatelessWidget {
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
-        Center(child: Container(width: 40, height: 4,
-            decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)))),
+        // Handle + practice button row
+        Row(children: [
+          const Spacer(),
+          Container(width: 40, height: 4,
+              decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2))),
+          const Spacer(),
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => PracticeScreen(
+                symbol: simplified ?? display,
+                pinyin: pinyin,
+                hanViet: hanViet,
+                englishDef: englishDef,
+              ),
+            )),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Icon(Icons.edit_outlined, color: c.textMuted, size: 20),
+            ),
+          ),
+        ]),
         const SizedBox(height: 20),
 
         // Hero: hangul (large) or tappable Chinese chars

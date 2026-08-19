@@ -26,6 +26,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   List<Offset>? _currentStroke;
   double _strokeWidth = 5.0;
   int _attempts = 0;
+  bool _revealed = false;
 
   void _onPanStart(DragStartDetails d) {
     setState(() {
@@ -43,6 +44,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   void _clear() => setState(() { _strokes.clear(); _attempts++; });
+
+  void _toggleReveal() => setState(() => _revealed = !_revealed);
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +103,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       child: CustomPaint(
                         painter: StrokePainter(
                           strokes: _strokes,
-                          guideChar: widget.symbol,
+                          guideChar: _revealed ? widget.symbol : '',
                           guideColor: guideColor,
                           strokeColor: strokeColor,
                           strokeWidth: _strokeWidth,
@@ -155,15 +158,15 @@ class _PracticeScreenState extends State<PracticeScreen> {
             ),
             const SizedBox(width: 10),
             GestureDetector(
-              onTap: () => Navigator.pop(context),
+              onTap: _toggleReveal,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppTheme.hanviet,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text('Done',
-                    style: TextStyle(color: Colors.white,
+                child: Text(_revealed ? 'Hide' : 'Reveal',
+                    style: const TextStyle(color: Colors.white,
                         fontWeight: FontWeight.w700, fontSize: 14)),
               ),
             ),

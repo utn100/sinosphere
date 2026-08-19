@@ -5,7 +5,7 @@
 **Stack:** Flutter 3.47.0 · Dart 3.13 · Drift SQLite · Riverpod v3 · Multi-provider AI  
 **Package ID:** `com.sinosphere.sinosphere_rosetta`  
 **GitHub:** https://github.com/utn100/sinosphere (public)  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-19
 
 ---
 
@@ -658,6 +658,48 @@ app/lib/features/practice/
 ├── daily_practice_screen.dart  ← 10-word session
 └── stroke_painter.dart         ← CustomPainter with bezier smoothing
 ```
+
+---
+
+---
+
+## Phase 10 — Polish & Engagement ✅ Complete (2026-08-18)
+
+### Deck progress bars
+- HSK and TOPIK deck cards show memorization % and a colored progress bar inline
+- New `getMemorizedCountByHsk()` and `getMemorizedCountByTopik()` DAO methods
+- Progress persists in `user_collection_words` (existing `memorized` collection)
+
+### Search history
+- Search bar shows last 10 queries as chips when focused and empty (no query typed)
+- Persisted via `shared_preferences`; chips are tappable to re-run the search
+
+### Daily word notification
+- `lib/core/services/notification_service.dart` — `flutter_local_notifications` + `timezone`
+- Notification scheduled daily at user-configured hour (default 15:00 local)
+- Tap opens that word's Dict card, aligned to current language mode (ZH or KR)
+- Structured payload: `zh|<simplified>`, `krs|<id>` (Sino-Korean), `krn|<id>` (native Korean)
+- Android 13+ POST_NOTIFICATIONS runtime permission requested on first install
+- Notification settings in Settings screen: enable/disable toggle, hour picker, "notify on open" toggle
+- `notifDebugToUi` flag for diagnosing release-only notification failures without adb
+- Rotating tagline titles (5 strings, chosen deterministically by day-of-year)
+
+### Mascot, icon, animated splash, wordmark
+- New app icon (`ic_launcher`, `ic_notification` monochrome silhouette for status bar)
+- `lib/features/splash/splash_animation_screen.dart` — animated splash with mascot and wordmark
+- Native splash (`splashscreen.png`) used as fallback; Flutter animated splash removed when unnecessary
+
+### Bug fixes in this phase
+| Bug | Fix |
+|---|---|
+| Notifications showed wrong word on black screen | `requestNotificationsPermission` moved out of `initNotifications` |
+| App startup hang | `initNotifications` moved after `runApp`; `600-location loop` removed |
+| Splash black screen | `runApp` immediately with loading screen while DB copies in Isolate |
+| Notification permission dialog never appeared | Isolated permission request in its own guarded block before scheduling logic |
+| Daily word tap opened wrong language mode | Payload structured as `zh|`, `krs|`, `krn|` prefix; Dict screen routes by prefix |
+| Memorized folder staleness | `invalidate(collectionItemsProvider)` on every toggle/reset |
+| TOPIK/HSK memorized state bleeding into each other | `memorized_zh` and `memorized_kr` kept separate in logic |
+| Progress bars and KR daily practice issues | Multiple targeted fixes across `collections_screen.dart` and `daily_practice_screen.dart` |
 
 ---
 

@@ -31,7 +31,7 @@ class GraphPainter extends CustomPainter {
 
       if (edge.type == GraphEdgeType.sibling) {
         // Dashed line
-        _drawDashed(canvas, from.position, to.position, paint);
+        _drawDashedLine(canvas, from.position, to.position, paint);
       } else {
         canvas.drawLine(from.position, to.position, paint);
       }
@@ -48,6 +48,15 @@ class GraphPainter extends CustomPainter {
     final isSelected = node.id == selectedId;
     final color = _nodeColor(node);
     final r = node.radius;
+
+    // Dashed outer ring on focal node — signals tap → dict card navigation
+    if (node.type == GraphNodeType.focal) {
+      _drawDashed(canvas, node.position, r + 8,
+          Paint()
+            ..color = color.withAlpha(140)
+            ..strokeWidth = 1.2
+            ..style = PaintingStyle.stroke);
+    }
 
     // Fill
     canvas.drawCircle(node.position, r,
@@ -112,7 +121,20 @@ class GraphPainter extends CustomPainter {
     }
   }
 
-  void _drawDashed(Canvas canvas, Offset p1, Offset p2, Paint paint) {
+  void _drawDashed(Canvas canvas, Offset center, double radius, Paint paint) {
+    const dashAngle = 0.18; // radians per dash arc
+    const gapAngle  = 0.12;
+    var angle = 0.0;
+    while (angle < 6.2832) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        angle, dashAngle, false, paint,
+      );
+      angle += dashAngle + gapAngle;
+    }
+  }
+
+  void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Paint paint) {
     const dashLen = 5.0;
     const gapLen  = 4.0;
     final total = (p2 - p1).distance;

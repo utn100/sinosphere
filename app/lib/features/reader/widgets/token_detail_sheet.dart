@@ -6,6 +6,7 @@ import '../../dict_card/dict_card_provider.dart';
 import '../../dict_card/widgets/word_enrichment.dart';
 import '../../dict_card/widgets/bookmark_button.dart';
 import '../../shell/app_shell.dart';
+import '../../practice/practice_screen.dart';
 import '../models/token.dart';
 
 class TokenDetailSheet extends ConsumerWidget {
@@ -26,8 +27,27 @@ class TokenDetailSheet extends ConsumerWidget {
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
-        Center(child: Container(width: 40, height: 4,
-            decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)))),
+        // Handle + practice button row
+        Row(children: [
+          const Spacer(),
+          Container(width: 40, height: 4,
+              decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2))),
+          const Spacer(),
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => PracticeScreen(
+                symbol:     token.simplified ?? token.text,
+                pinyin:     token.pinyin,
+                hanViet:    token.hanViet,
+                englishDef: token.englishDef,
+              ),
+            )),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Icon(Icons.edit_outlined, color: c.textMuted, size: 20),
+            ),
+          ),
+        ]),
         const SizedBox(height: 20),
 
         // Hero text

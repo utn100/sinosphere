@@ -251,9 +251,25 @@ class _SearchResultSheet extends StatelessWidget {
         controller: scrollController,
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         children: [
-          // Handle
-          Center(child: Container(width: 40, height: 4,
-              decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)))),
+          // Handle + practice button row
+          Row(children: [
+            const Spacer(),
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2))),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => PracticeScreen(
+                  symbol: result.simplified, pinyin: result.pinyin,
+                  hanViet: result.hanViet, englishDef: result.englishDef,
+                ),
+              )),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(Icons.edit_outlined, color: c.textMuted, size: 20),
+              ),
+            ),
+          ]),
           const SizedBox(height: 20),
 
           // Tappable character row — long-press to copy the word
@@ -893,8 +909,25 @@ class _WordBottomSheet extends StatelessWidget {
         controller: scrollController,
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         children: [
-          Center(child: Container(width: 40, height: 4,
-              decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)))),
+          // Handle + practice button row
+          Row(children: [
+            const Spacer(),
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2))),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => PracticeScreen(
+                  symbol: word.simplified, pinyin: word.pinyin,
+                  hanViet: word.hanViet, englishDef: word.englishDef,
+                ),
+              )),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(Icons.edit_outlined, color: c.textMuted, size: 20),
+              ),
+            ),
+          ]),
           const SizedBox(height: 20),
 
           // Tappable character row — long-press any char to copy the full word

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/database/database.dart';
 import '../../core/services/database_provider.dart';
 import '../../core/services/lang_mode_provider.dart';
@@ -71,9 +72,19 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
 
     switch (node.type) {
       case GraphNodeType.focal:
-        final focalChar = await db.characterDao.getBySymbol(ref.read(graphProvider).focalSymbol);
-        if (focalChar != null) {
-          await notifier.expandFocalCompounds(focalChar.id, node.id, node.label);
+        final focalSymbol = ref.read(graphProvider).focalSymbol;
+        if (focalSymbol.length == 1) {
+          // Single character — open dict card
+          ref.read(activeSymbolProvider.notifier).set(focalSymbol);
+          ref.read(tabIndexProvider.notifier).set(0);
+        } else {
+          // Compound word — show bottom sheet as before
+          CompoundWord? cw = _wordCache[node.id];
+          if (cw == null) {
+            cw = await db.compoundDao.getBySimplified(focalSymbol);
+            if (cw != null) _wordCache[node.id] = cw;
+          }
+          if (cw != null && mounted) _showRelatedSheet(cw);
         }
 
       case GraphNodeType.root:
@@ -124,8 +135,26 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
     }
   }
 
-  void _showRelatedSheet(CompoundWord word) {
-    showModalBottomSheet(
+  static const _graphTipKey = 'sinosphere_graph_tip_shown';
+
+  Future<void> _onNodeLongPress(GraphNode node) async {
+    if (node.type != GraphNodeType.sibling &&
+        node.type != GraphNodeType.component) return;
+    ref.read(activeSymbolProvider.notifier).set(node.label);
+    ref.read(tabIndexProvider.notifier).set(0);
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(_graphTipKey) ?? false)) {
+      await prefs.setBool(_graphTipKey, true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Tip: long-press a character node to open its Dict card'),
+          duration: Duration(seconds: 3),
+        ));
+      }
+    }
+  }
+
+  void _showRelatedSheet(CompoundWord word) {    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -271,6 +300,10 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                         final node = _hitTest(details.localPosition, graph.nodes);
                         if (node != null) _onNodeTap(node);
                       },
+                      onLongPressStart: (details) {
+                        final node = _hitTest(details.localPosition, graph.nodes);
+                        if (node != null) _onNodeLongPress(node);
+                      },
                       child: SizedBox(
                         width: 800,
                         height: 800,
@@ -287,7 +320,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Text(
-              'Tap component → expand siblings  ·  Tap character → show words  ·  Tap word → related',
+              'Tap component → expand siblings  ·  Tap character → show words  ·  Long-press character → Dict card  ·  Tap focal → Dict card',
               style: TextStyle(color: c.textMuted, fontSize: 10),
               textAlign: TextAlign.center,
             ),
