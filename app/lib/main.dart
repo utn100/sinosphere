@@ -16,7 +16,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Read prefs — fast (~5ms)
+  // Read prefs — fast
   final prefs = await SharedPreferences.getInstance();
   final storedLang  = prefs.getString('sinosphere_lang_mode');
   final storedTheme = prefs.getString('sinosphere_theme_mode');
@@ -25,10 +25,10 @@ void main() async {
   if (storedTheme == 'light')  ThemeModeNotifier.cached = ThemeMode.light;
   if (storedTheme == 'system') ThemeModeNotifier.cached = ThemeMode.system;
 
-  // Show loading screen immediately — native splash transitions to Flutter frame
+  // Show loading screen immediately so native splash transitions fast
   runApp(const _LoadingApp());
 
-  // DB copy (slow on first install) runs after first frame is visible
+  // DB copy runs after first frame
   final db = await openDatabase();
 
   final container = ProviderContainer(
@@ -36,20 +36,20 @@ void main() async {
   );
   notificationContainer = container;
 
+  // Init notifications synchronously so plugin is ready — fast (~10ms, no timezone loop)
+  await initNotifications();
+
   // Replace loading screen with real app
   runApp(UncontrolledProviderScope(
     container: container,
     child: const SinosphereApp(),
   ));
 
-  // Wait for first frame to be rendered before showing notifications
-  // (Android requires the activity to be active for permission dialog + show())
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    initAndSchedule(container);
-  });
+  // Schedule after runApp — activity is active at this point
+  scheduleWordOfDay(container);
 }
 
-/// Shown while DB is loading — matches splashscreen colors
+/// Dark loading screen shown while DB copies on first install
 class _LoadingApp extends StatelessWidget {
   const _LoadingApp();
 

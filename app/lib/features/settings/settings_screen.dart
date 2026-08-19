@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/ai_service.dart';
+import '../../core/services/notification_service.dart'
+    show kNotifEnabled, kNotifHour, kNotifOnOpen;
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -16,6 +19,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _urlCtrl   = TextEditingController();
   final _modelCtrl = TextEditingController();
   bool _keyObscured  = true;
+
+  // Notification settings
+  bool _notifEnabled = true;
+  int  _notifHour    = 15;
+  bool _notifOnOpen  = true;
   bool _testing      = false;
   String? _testResult;
 
@@ -30,6 +38,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _keyCtrl.text   = settings.apiKey;
     _urlCtrl.text   = settings.customBaseUrl;
     _modelCtrl.text = settings.customModel;
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() {
+      _notifEnabled = prefs.getBool(kNotifEnabled) ?? true;
+      _notifHour    = prefs.getInt(kNotifHour)     ?? 15;
+      _notifOnOpen  = prefs.getBool(kNotifOnOpen)  ?? true;
+    });
+  }
+
+  Future<void> _saveNotifPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(kNotifEnabled, _notifEnabled);
+    await prefs.setInt(kNotifHour,     _notifHour);
+    await prefs.setBool(kNotifOnOpen,  _notifOnOpen);
   }
 
   @override
@@ -173,6 +194,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 28),
+
+            // ── Notifications ────────────────────────────────────────
+            _SectionHeader(label: 'NOTIFICATIONS', c: c),
+            const SizedBox(height: 8),
+            _SettingsRow(
+              c: c,
+              label: 'Word of the day',
+              subtitle: 'Daily vocabulary notification',
+              trailing: Switch(
+                value: _notifEnabled,
+                activeThumbColor: AppTheme.hanviet,
+                activeTrackColor: AppTheme.hanviet.withAlpha(77),
+                onChanged: (v) { setState(() => _notifEnabled = v); _saveNotifPrefs(); },
+              ),
+            ),
+            if (_notifEnabled) ...[
+              const SizedBox(height: 8),
+              _SettingsRow(
+                c: c,
+                label: 'Notification time',
+                subtitle: _hourLabel(_notifHour),
+                trailing: Icon(Icons.chevron_right, color: c.textMuted, size: 20),
+                onTap: () async {
+                  final picked = await showDialog<int>(
+                    context: context,
+                    builder: (ctx) => _HourPickerDialog(current: _notifHour),
+                  );
+                  if (picked != null) {
+                    setState(() => _notifHour = picked);
+                    _saveNotifPrefs();
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              _SettingsRow(
+                c: c,
+                label: 'Notify on app open',
+                subtitle: 'Show word when you open the app',
+                trailing: Switch(
+                  value: _notifOnOpen,
+                  activeThumbColor: AppTheme.hanviet,
+                  activeTrackColor: AppTheme.hanviet.withAlpha(77),
+                  onChanged: (v) { setState(() => _notifOnOpen = v); _saveNotifPrefs(); },
+                ),
+              ),
+            ],
 
             const SizedBox(height: 28),
 
@@ -343,12 +412,15 @@ class _SettingsRow extends StatelessWidget {
   final String label;
   final String subtitle;
   final Widget trailing;
+  final VoidCallback? onTap;
   const _SettingsRow({required this.c, required this.label,
-      required this.subtitle, required this.trailing});
+      required this.subtitle, required this.trailing, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: c.cardBg, borderRadius: BorderRadius.circular(14),
@@ -369,7 +441,8 @@ class _SettingsRow extends StatelessWidget {
           trailing,
         ],
       ),
-    );
+    ),  // Container
+    );  // GestureDetector
   }
 }
 
@@ -407,5 +480,52 @@ class _SectionHeader extends StatelessWidget {
         style: TextStyle(
             color: c.textMuted, fontSize: 10,
             fontWeight: FontWeight.w800, letterSpacing: 1));
+  }
+}
+
+String _hourLabel(int hour) {
+  final h = hour % 12 == 0 ? 12 : hour % 12;
+  final ampm = hour < 12 ? 'AM' : 'PM';
+  return '$h:00 $ampm';
+}
+
+class _HourPickerDialog extends StatefulWidget {
+  final int current;
+  const _HourPickerDialog({required this.current});
+
+  @override
+  State<_HourPickerDialog> createState() => _HourPickerDialogState();
+}
+
+class _HourPickerDialogState extends State<_HourPickerDialog> {
+  late int _selected;
+
+  @override
+  void initState() { super.initState(); _selected = widget.current; }
+
+  static const _options = [7, 8, 9, 12, 15, 18, 20, 21];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Notification time'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: _options.map((h) => RadioListTile<int>(
+          title: Text(_hourLabel(h)),
+          value: h,
+          groupValue: _selected,
+          activeColor: AppTheme.hanviet,
+          onChanged: (v) => setState(() => _selected = v!),
+        )).toList(),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _selected),
+          child: const Text('Save', style: TextStyle(color: AppTheme.hanviet)),
+        ),
+      ],
+    );
   }
 }

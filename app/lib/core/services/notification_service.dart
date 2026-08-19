@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import '../database/database.dart';
@@ -15,13 +16,15 @@ const _notifId     = 1;
 const _testNotifId = 2;
 const _channelId   = 'sinosphere_daily';
 const _channelName = 'Daily Word';
-const _notifHour   = 15; // 3pm local
+
+// SharedPreferences keys
+const kNotifEnabled  = 'sinosphere_notif_enabled';
+const kNotifHour     = 'sinosphere_notif_hour';
+const kNotifOnOpen   = 'sinosphere_notif_on_open';
 
 Future<void> initNotifications() async {
   tz.initializeTimeZones();
-  // Use UTC as local — zonedSchedule with matchDateTimeComponents.time
-  // fires at the correct local time because the OS handles DST/offsets
-  tz.setLocalLocation(tz.UTC);
+  tz.setLocalLocation(tz.UTC); // device handles local time for scheduled notifications
 
   const android = AndroidInitializationSettings('@drawable/ic_notification');
   const ios = DarwinInitializationSettings(
@@ -40,35 +43,28 @@ Future<void> initNotifications() async {
 }
 
 @pragma('vm:entry-point')
-void _onTapBackground(NotificationResponse response) => _handlePayload(response.payload);
-
-void _onTap(NotificationResponse response) => _handlePayload(response.payload);
+void _onTapBackground(NotificationResponse r) => _handlePayload(r.payload);
+void _onTap(NotificationResponse r)           => _handlePayload(r.payload);
 
 void _handlePayload(String? payload) {
   if (payload == null || payload.isEmpty) return;
-  final container = notificationContainer;
-  if (container == null) return;
-  // Multi-char = compound word → open as bottom sheet via pendingCompoundProvider
-  // Single char = character → open in dict card directly
+  final c = notificationContainer;
+  if (c == null) return;
   if (payload.length == 1) {
-    container.read(activeSymbolProvider.notifier).set(payload);
+    c.read(activeSymbolProvider.notifier).set(payload);
   } else {
-    container.read(pendingCompoundProvider.notifier).set(payload);
+    c.read(pendingCompoundProvider.notifier).set(payload);
   }
-  container.read(tabIndexProvider.notifier).set(0);
+  c.read(tabIndexProvider.notifier).set(0);
 }
 
 tz.TZDateTime _nextInstanceOf(int hour) {
-  // Schedule in device local time — offset from UTC
-  final now = DateTime.now();
+  final now    = DateTime.now();
   final offset = now.timeZoneOffset;
-  final nowUtc = tz.TZDateTime.now(tz.UTC);
-  // Target time in local terms, expressed as UTC offset
+  final utcNow = tz.TZDateTime.now(tz.UTC);
   var scheduled = tz.TZDateTime(tz.UTC,
-      nowUtc.year, nowUtc.month, nowUtc.day,
-      hour, 0, 0)
-      .subtract(offset);
-  if (scheduled.isBefore(nowUtc)) {
+      utcNow.year, utcNow.month, utcNow.day, hour).subtract(offset);
+  if (scheduled.isBefore(utcNow)) {
     scheduled = scheduled.add(const Duration(days: 1));
   }
   return scheduled;
@@ -87,21 +83,22 @@ const _notifDetails = NotificationDetails(
   ),
 );
 
-Future<void> initAndSchedule(ProviderContainer container) async {
-  try {
-    await initNotifications();
-    await scheduleWordOfDay(container);
-  } catch (e) {
-    print('Notification init error: $e');
-  }
-}
-
 Future<void> scheduleWordOfDay(ProviderContainer container) async {
   try {
+    final prefs   = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(kNotifEnabled) ?? true;
+    final hour    = prefs.getInt(kNotifHour)     ?? 15;
+    final onOpen  = prefs.getBool(kNotifOnOpen)  ?? true;
+
+    if (!enabled) {
+      await _plugin.cancelAll();
+      return;
+    }
+
     final words = await container.read(databaseProvider).collectionDao
         .getRandomPracticeWords(1);
     if (words.isEmpty) return;
-    final word = words.first;
+    final word  = words.first;
     await _plugin.cancelAll();
 
     final title = word.simplified.length == 1
@@ -109,14 +106,16 @@ Future<void> scheduleWordOfDay(ProviderContainer container) async {
         : '${word.simplified}  ${word.hangul ?? ''}';
     final body = word.englishDef;
 
-    // Immediate notification for testing
-    await _plugin.show(_testNotifId, title, body, _notifDetails,
-        payload: word.simplified);
+    // Immediate notification on app open (if enabled)
+    if (onOpen) {
+      await _plugin.show(_testNotifId, title, body, _notifDetails,
+          payload: word.simplified);
+    }
 
-    // Daily scheduled
+    // Daily scheduled notification
     await _plugin.zonedSchedule(
       _notifId, title, body,
-      _nextInstanceOf(_notifHour),
+      _nextInstanceOf(hour),
       _notifDetails,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
