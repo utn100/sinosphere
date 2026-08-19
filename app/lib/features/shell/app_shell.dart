@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../app.dart' show themeModeProvider;
 import '../../core/services/lang_mode_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -29,12 +28,6 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   void initState() {
     super.initState();
-    // Request notification permission after first frame — ensures dialog shows while app is visible
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await FlutterLocalNotificationsPlugin()
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
-    });
   }
 
   @override

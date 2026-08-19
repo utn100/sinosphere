@@ -36,14 +36,17 @@ void main() async {
   );
   notificationContainer = container;
 
-  // Notifications initialise + schedule in background — never block the UI
-  initAndSchedule(container);
-
   // Replace loading screen with real app
   runApp(UncontrolledProviderScope(
     container: container,
     child: const SinosphereApp(),
   ));
+
+  // Wait for first frame to be rendered before showing notifications
+  // (Android requires the activity to be active for permission dialog + show())
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    initAndSchedule(container);
+  });
 }
 
 /// Shown while DB is loading — matches splashscreen colors
