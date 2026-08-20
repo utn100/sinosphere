@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
@@ -15,6 +16,8 @@ bool _initialized = false;
 /// When true, notification progress/errors are surfaced on-screen via SnackBar.
 /// print() is stripped from Flutter release builds, so this is the only way to
 /// diagnose release-only notification failures on a device without adb.
+/// Flip to true (and set _showNotifDiagnostics=true in settings_screen.dart) to
+/// debug notification delivery from an installed release APK. See BUILD_STATUS.
 bool notifDebugToUi = false;
 
 void _diag(String msg) {
@@ -37,11 +40,51 @@ const _channelName = 'Daily Word';
 // SharedPreferences keys
 const kNotifEnabled  = 'sinosphere_notif_enabled';
 const kNotifHour     = 'sinosphere_notif_hour';
+const kNotifMinute   = 'sinosphere_notif_minute';
 const kNotifOnOpen   = 'sinosphere_notif_on_open';
+
+/// Maps deprecated IANA timezone aliases that some OEMs still report to their
+/// canonical names present in the `timezone` package DB. Without this, e.g.
+/// Vietnamese devices reporting "Asia/Saigon" fail getLocation() and fall back
+/// to UTC — shifting every scheduled notification by the UTC offset.
+String _canonicalZone(String z) {
+  const aliases = {
+    'Asia/Saigon':      'Asia/Ho_Chi_Minh',
+    'Asia/Calcutta':    'Asia/Kolkata',
+    'Asia/Rangoon':     'Asia/Yangon',
+    'Asia/Katmandu':    'Asia/Kathmandu',
+    'Asia/Ulan_Bator':  'Asia/Ulaanbaatar',
+    'Asia/Chungking':   'Asia/Shanghai',
+    'Asia/Harbin':      'Asia/Shanghai',
+    'Asia/Thimbu':      'Asia/Thimphu',
+    'Asia/Dacca':       'Asia/Dhaka',
+    'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+    'Pacific/Ponape':   'Pacific/Pohnpei',
+    'Pacific/Truk':     'Pacific/Chuuk',
+  };
+  return aliases[z] ?? z;
+}
 
 Future<void> initNotifications() async {
   tz.initializeTimeZones();
-  tz.setLocalLocation(tz.UTC); // device handles local time for scheduled notifications
+  // Resolve the device's real IANA zone (e.g. "Asia/Bangkok") via a single
+  // platform-channel call — NOT by iterating tz.timeZoneDatabase (that 600-entry
+  // loop caused the old startup freeze). Falls back to UTC on any failure so this
+  // can never hang or throw. Runs fire-and-forget after runApp, so even the
+  // await here never blocks the splash.
+  try {
+    final raw = await FlutterTimezone.getLocalTimezone(); // String in v4.x
+    // Some OEMs report deprecated IANA aliases the tz database no longer holds
+    // (e.g. Vietnam devices report "Asia/Saigon" but the DB only has
+    // "Asia/Ho_Chi_Minh"). Map known aliases to their canonical name; otherwise
+    // getLocation() throws and we'd wrongly fall back to UTC.
+    final zone = _canonicalZone(raw);
+    tz.setLocalLocation(tz.getLocation(zone));
+    _diag('local zone = $zone (device reported $raw)');
+  } catch (e) {
+    tz.setLocalLocation(tz.UTC);
+    _diag('zone lookup failed ($e) — falling back to UTC');
+  }
 
   const android = AndroidInitializationSettings('@drawable/ic_notification');
   const ios = DarwinInitializationSettings(
@@ -96,13 +139,14 @@ void _handlePayload(String? payload) {
   c.read(tabIndexProvider.notifier).set(0);
 }
 
-tz.TZDateTime _nextInstanceOf(int hour) {
-  final now    = DateTime.now();
-  final offset = now.timeZoneOffset;
-  final utcNow = tz.TZDateTime.now(tz.UTC);
-  var scheduled = tz.TZDateTime(tz.UTC,
-      utcNow.year, utcNow.month, utcNow.day, hour).subtract(offset);
-  if (scheduled.isBefore(utcNow)) {
+tz.TZDateTime _nextInstanceOf(int hour, int minute) {
+  // tz.local is the device's real zone (set in initNotifications), so this is
+  // plain local-time math — no manual UTC offset juggling. zonedSchedule with
+  // matchDateTimeComponents.time then repeats daily at this local wall-clock
+  // time, correctly following DST/travel.
+  final now = tz.TZDateTime.now(tz.local);
+  var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+  if (scheduled.isBefore(now)) {
     scheduled = scheduled.add(const Duration(days: 1));
   }
   return scheduled;
@@ -124,7 +168,82 @@ const _notifDetails = NotificationDetails(
   ),
 );
 
-Future<void> scheduleWordOfDay(ProviderContainer container) async {
+/// Diagnostic: returns a human-readable snapshot of the notification setup so we
+/// can see on-device (via SnackBar) what the OS actually reports. Covers the
+/// three things that silently block delivery on Android: notifications disabled,
+/// exact alarms not permitted, and which zone/time we're scheduling for.
+Future<String> notifDiagnostics() async {
+  final sb = StringBuffer();
+  try {
+    if (!_initialized) {
+      await initNotifications();
+      _initialized = true;
+    }
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (android != null) {
+      final enabled = await android.areNotificationsEnabled();
+      final canExact = await android.canScheduleExactNotifications();
+      sb.writeln('notifsEnabled=$enabled');
+      sb.writeln('canScheduleExact=$canExact');
+    } else {
+      sb.writeln('(iOS or no Android impl)');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final hour   = prefs.getInt(kNotifHour)   ?? 15;
+    final minute = prefs.getInt(kNotifMinute) ?? 0;
+    sb.writeln('zone=${tz.local.name}');
+    sb.writeln('next=${_nextInstanceOf(hour, minute)}');
+  } catch (e) {
+    sb.writeln('ERROR: $e');
+  }
+  return sb.toString().trim();
+}
+
+/// Diagnostic: fire a notification immediately (proves the channel + delivery
+/// work, independent of scheduling/Doze).
+Future<void> sendTestNotificationNow() async {
+  if (!_initialized) {
+    await initNotifications();
+    _initialized = true;
+  }
+  final granted = await requestNotificationPermission();
+  _diag('sendTestNow: permission=$granted');
+  await _plugin.show(_testNotifId, 'Test notification 🔔',
+      'If you see this, delivery works.', _notifDetails, payload: 'zh|test');
+  _diag('sendTestNow: show() returned');
+}
+
+/// Diagnostic: schedule a one-off notification ~1 minute out using the exact
+/// alarm path (proves scheduled delivery works without waiting until tomorrow).
+Future<void> scheduleTestInOneMinute() async {
+  if (!_initialized) {
+    await initNotifications();
+    _initialized = true;
+  }
+  await requestNotificationPermission();
+  final android = _plugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  final canExact = await android?.canScheduleExactNotifications();
+  _diag('scheduleTest: canScheduleExact=$canExact');
+  final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
+  try {
+    await _plugin.zonedSchedule(
+      _testNotifId, 'Scheduled test ⏰',
+      'Fired at ${when.hour}:${when.minute.toString().padLeft(2, '0')} — exact alarm works.',
+      when, _notifDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      payload: 'zh|test',
+    );
+    _diag('scheduleTest: scheduled for $when');
+  } catch (e) {
+    _diag('scheduleTest ERROR: $e');
+  }
+}
+
+Future<void> scheduleWordOfDay(ProviderContainer container, {bool showNow = true}) async {
   try {
     _diag('start, _initialized=$_initialized');
     if (!_initialized) {
@@ -137,14 +256,30 @@ Future<void> scheduleWordOfDay(ProviderContainer container) async {
     // (In release/R8 builds a swallowed exception later was hiding this call.)
     await requestNotificationPermission();
 
+    // Exact-alarm gate: on Android 12+ USE_EXACT_ALARM may not be honored and
+    // the OS silently downgrades/refuses the exact alarm — the #1 cause of a
+    // scheduled notification never firing. Check, and if not granted, send the
+    // user to the system "Alarms & reminders" page to grant it.
+    final androidImpl = _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImpl != null) {
+      final canExact = await androidImpl.canScheduleExactNotifications();
+      _diag('canScheduleExact=$canExact');
+      if (canExact == false) {
+        _diag('requesting exact-alarm permission…');
+        await androidImpl.requestExactAlarmsPermission();
+      }
+    }
+
     final prefs   = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(kNotifEnabled) ?? true;
     final hour    = prefs.getInt(kNotifHour)     ?? 15;
+    final minute  = prefs.getInt(kNotifMinute)   ?? 0;
     final onOpen  = prefs.getBool(kNotifOnOpen)  ?? true;
     // Follow the app's current language mode (persisted in SharedPreferences,
     // since this may run before any provider is available).
     final isKorean = prefs.getString('sinosphere_lang_mode') == 'korean';
-    print('[NOTIF] enabled=$enabled hour=$hour onOpen=$onOpen korean=$isKorean');
+    print('[NOTIF] enabled=$enabled hour=$hour minute=$minute onOpen=$onOpen korean=$isKorean');
 
     if (!enabled) {
       await _plugin.cancelAll();
@@ -202,8 +337,10 @@ Future<void> scheduleWordOfDay(ProviderContainer container) async {
       payload = 'krs|${word.id}';
     }
 
-    // Immediate notification on app open (if enabled)
-    if (onOpen) {
+    // Immediate notification on app open (if enabled). Suppressed when
+    // rescheduling from Settings (showNow=false) so toggling a switch or
+    // changing the time doesn't spam a notification each time.
+    if (onOpen && showNow) {
       _diag('calling show()');
       await _plugin.show(_testNotifId, title, body, _notifDetails,
           payload: payload);
@@ -211,12 +348,14 @@ Future<void> scheduleWordOfDay(ProviderContainer container) async {
     }
 
     // Daily scheduled notification
-    _diag('calling zonedSchedule() at ${_nextInstanceOf(hour)}');
+    _diag('calling zonedSchedule() at ${_nextInstanceOf(hour, minute)}');
     await _plugin.zonedSchedule(
       _notifId, title, body,
-      _nextInstanceOf(hour),
+      _nextInstanceOf(hour, minute),
       _notifDetails,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      // Exact alarm — fires precisely at the chosen hour even in Doze.
+      // Backed by USE_EXACT_ALARM in the manifest (granted at install).
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,

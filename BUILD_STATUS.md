@@ -5,7 +5,7 @@
 **Stack:** Flutter 3.47.0 · Dart 3.13 · Drift SQLite · Riverpod v3 · Multi-provider AI  
 **Package ID:** `com.sinosphere.sinosphere_rosetta`  
 **GitHub:** https://github.com/utn100/sinosphere (public)  
-**Last updated:** 2026-08-19
+**Last updated:** 2026-08-20
 
 ---
 
@@ -700,6 +700,40 @@ app/lib/features/practice/
 | Memorized folder staleness | `invalidate(collectionItemsProvider)` on every toggle/reset |
 | TOPIK/HSK memorized state bleeding into each other | `memorized_zh` and `memorized_kr` kept separate in logic |
 | Progress bars and KR daily practice issues | Multiple targeted fixes across `collections_screen.dart` and `daily_practice_screen.dart` |
+
+---
+
+## Phase 11 — Notification Reliability ✅ Complete (2026-08-20)
+
+Fixed the daily-word notification not firing on Android and made scheduling timezone-correct.
+
+### Timezone fix
+- Added `flutter_timezone: 4.1.0` — resolves the device's real IANA zone (single platform-channel call, **not** the old 600-entry loop that caused the startup freeze). Falls back to UTC on failure.
+- `initNotifications()` sets `tz.local` to the real zone; `_nextInstanceOf(hour, minute)` now does plain local-time math (no manual UTC-offset juggling).
+- **Alias mapping** (`_canonicalZone`): some OEMs report deprecated IANA aliases the tz DB no longer holds. Vietnam devices report `Asia/Saigon` but the DB only has `Asia/Ho_Chi_Minh` — the lookup threw and silently fell back to UTC (shifting a 10am alarm to 5pm local). Maps Saigon→Ho_Chi_Minh plus ~11 other common aliases (Calcutta→Kolkata, Rangoon→Yangon, etc.).
+
+### Exact alarms
+- `AndroidManifest.xml`: added `USE_EXACT_ALARM` + `SCHEDULE_EXACT_ALARM`
+- `zonedSchedule` now uses `AndroidScheduleMode.exactAllowWhileIdle` (fires precisely even in Doze; was `inexactAllowWhileIdle` which the OS batched by minutes-to-hours)
+- `scheduleWordOfDay` checks `canScheduleExactNotifications()` and calls `requestExactAlarmsPermission()` if not granted
+
+### Custom notification time
+- Settings now uses the native `showTimePicker` (any hour+minute) instead of a fixed 8-option radio list
+- New `kNotifMinute` pref; minute threaded through the whole schedule path
+- **Rescheduling on save**: `_saveNotifPrefs()` now calls `scheduleWordOfDay(container, showNow: false)` — previously changing the time only took effect on next cold start. `showNow` flag suppresses the on-open notification when merely re-saving settings.
+
+### Debugging notifications (how to re-enable)
+Two flags are OFF by default. To debug notification delivery from an **installed release APK** (where `print()` is stripped and there's no adb):
+1. `notifDebugToUi = true` in `app/lib/core/services/notification_service.dart` — surfaces every notification step as an on-screen SnackBar.
+2. `_showNotifDiagnostics = true` in `app/lib/features/settings/settings_screen.dart` — reveals three buttons under Settings → Notifications:
+   - **Diagnostics** — dialog showing `notifsEnabled`, `canScheduleExact`, resolved `zone`, and next fire time
+   - **Send test now** — fires immediately (tests delivery pipeline)
+   - **Test in 1 minute** — schedules an exact-alarm test (tests scheduled delivery without waiting until tomorrow)
+
+Rebuild the APK after flipping. Remember to set both back to `false` before release.
+
+### OEM caveat
+On aggressive OEMs (Xiaomi/MIUI), the user must also set the app's battery saver to "No restrictions" for scheduled alarms to survive Doze.
 
 ---
 

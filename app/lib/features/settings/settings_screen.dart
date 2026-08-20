@@ -5,7 +5,9 @@ import '../../app.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/ai_service.dart';
 import '../../core/services/notification_service.dart'
-    show kNotifEnabled, kNotifHour, kNotifOnOpen;
+    show kNotifEnabled, kNotifHour, kNotifMinute, kNotifOnOpen,
+         scheduleWordOfDay, notificationContainer,
+         notifDiagnostics, sendTestNotificationNow, scheduleTestInOneMinute;
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -13,6 +15,11 @@ class SettingsScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
+
+/// Flip to true (and set notifDebugToUi=true in notification_service.dart) to
+/// show the notification diagnostic buttons for debugging delivery from an
+/// installed release APK. See BUILD_STATUS "Debugging notifications".
+const bool _showNotifDiagnostics = false;
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _keyCtrl   = TextEditingController();
@@ -23,6 +30,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // Notification settings
   bool _notifEnabled = true;
   int  _notifHour    = 15;
+  int  _notifMinute  = 0;
   bool _notifOnOpen  = true;
   bool _testing      = false;
   String? _testResult;
@@ -42,6 +50,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) setState(() {
       _notifEnabled = prefs.getBool(kNotifEnabled) ?? true;
       _notifHour    = prefs.getInt(kNotifHour)     ?? 15;
+      _notifMinute  = prefs.getInt(kNotifMinute)   ?? 0;
       _notifOnOpen  = prefs.getBool(kNotifOnOpen)  ?? true;
     });
   }
@@ -50,7 +59,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(kNotifEnabled, _notifEnabled);
     await prefs.setInt(kNotifHour,     _notifHour);
+    await prefs.setInt(kNotifMinute,   _notifMinute);
     await prefs.setBool(kNotifOnOpen,  _notifOnOpen);
+    // Re-arm the OS alarm immediately with the new settings. Without this the
+    // change is only picked up on the next cold start. showNow:false so we
+    // don't fire an on-open notification just because a setting was tweaked.
+    final container = notificationContainer;
+    if (container != null) {
+      await scheduleWordOfDay(container, showNow: false);
+    }
   }
 
   @override
@@ -216,15 +233,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _SettingsRow(
                 c: c,
                 label: 'Notification time',
-                subtitle: _hourLabel(_notifHour),
+                subtitle: _timeLabel(_notifHour, _notifMinute),
                 trailing: Icon(Icons.chevron_right, color: c.textMuted, size: 20),
                 onTap: () async {
-                  final picked = await showDialog<int>(
+                  final picked = await showTimePicker(
                     context: context,
-                    builder: (ctx) => _HourPickerDialog(current: _notifHour),
+                    initialTime: TimeOfDay(hour: _notifHour, minute: _notifMinute),
+                    helpText: 'Notification time',
                   );
                   if (picked != null) {
-                    setState(() => _notifHour = picked);
+                    setState(() {
+                      _notifHour   = picked.hour;
+                      _notifMinute = picked.minute;
+                    });
                     _saveNotifPrefs();
                   }
                 },
@@ -241,6 +262,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onChanged: (v) { setState(() => _notifOnOpen = v); _saveNotifPrefs(); },
                 ),
               ),
+              // Notification diagnostics — hidden by default. Enable via
+              // _showNotifDiagnostics (see BUILD_STATUS "Debugging notifications").
+              if (_showNotifDiagnostics) ...[
+              const SizedBox(height: 8),
+              _SettingsRow(
+                c: c,
+                label: 'Send test now',
+                subtitle: 'Fire a notification immediately',
+                trailing: Icon(Icons.notifications_active_outlined, color: c.textMuted, size: 20),
+                onTap: () async {
+                  await sendTestNotificationNow();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Test sent — check your notification shade'),
+                    ));
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              _SettingsRow(
+                c: c,
+                label: 'Test in 1 minute',
+                subtitle: 'Schedule an exact-alarm test',
+                trailing: Icon(Icons.timer_outlined, color: c.textMuted, size: 20),
+                onTap: () async {
+                  await scheduleTestInOneMinute();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Scheduled — wait ~1 minute (keep phone idle)'),
+                    ));
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              _SettingsRow(
+                c: c,
+                label: 'Diagnostics',
+                subtitle: 'Show notification setup state',
+                trailing: Icon(Icons.bug_report_outlined, color: c.textMuted, size: 20),
+                onTap: () async {
+                  final report = await notifDiagnostics();
+                  if (!mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Notification diagnostics'),
+                      content: Text(report,
+                          style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Close')),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              ],
             ],
 
             const SizedBox(height: 28),
@@ -483,49 +562,9 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-String _hourLabel(int hour) {
+String _timeLabel(int hour, int minute) {
   final h = hour % 12 == 0 ? 12 : hour % 12;
   final ampm = hour < 12 ? 'AM' : 'PM';
-  return '$h:00 $ampm';
-}
-
-class _HourPickerDialog extends StatefulWidget {
-  final int current;
-  const _HourPickerDialog({required this.current});
-
-  @override
-  State<_HourPickerDialog> createState() => _HourPickerDialogState();
-}
-
-class _HourPickerDialogState extends State<_HourPickerDialog> {
-  late int _selected;
-
-  @override
-  void initState() { super.initState(); _selected = widget.current; }
-
-  static const _options = [7, 8, 9, 12, 15, 18, 20, 21];
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Notification time'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: _options.map((h) => RadioListTile<int>(
-          title: Text(_hourLabel(h)),
-          value: h,
-          groupValue: _selected,
-          activeColor: AppTheme.hanviet,
-          onChanged: (v) => setState(() => _selected = v!),
-        )).toList(),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _selected),
-          child: const Text('Save', style: TextStyle(color: AppTheme.hanviet)),
-        ),
-      ],
-    );
-  }
+  final m = minute.toString().padLeft(2, '0');
+  return '$h:$m $ampm';
 }
