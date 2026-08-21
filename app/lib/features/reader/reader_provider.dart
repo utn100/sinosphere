@@ -23,6 +23,7 @@ class ReaderState {
   final bool isExtractingOcr;
   final String? aiTranslation;
   final bool isTranslating;
+  final bool translateFailed;
 
   const ReaderState({
     this.tokens = const [],
@@ -35,6 +36,7 @@ class ReaderState {
     this.isExtractingOcr = false,
     this.aiTranslation,
     this.isTranslating = false,
+    this.translateFailed = false,
   });
 
   ReaderState copyWith({
@@ -42,7 +44,7 @@ class ReaderState {
     AnnotationMode? mode, bool? showHarvest,
     Set<String>? starred, bool? isAnnotating,
     bool? isExtractingOcr,
-    String? aiTranslation, bool? isTranslating,
+    String? aiTranslation, bool? isTranslating, bool? translateFailed,
     bool clearAiTranslation = false,
   }) => ReaderState(
     tokens: tokens ?? this.tokens,
@@ -55,6 +57,7 @@ class ReaderState {
     isExtractingOcr: isExtractingOcr ?? this.isExtractingOcr,
     aiTranslation: clearAiTranslation ? null : (aiTranslation ?? this.aiTranslation),
     isTranslating: isTranslating ?? this.isTranslating,
+    translateFailed: clearAiTranslation ? false : (translateFailed ?? this.translateFailed),
   );
 }
 
@@ -144,6 +147,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     state = state.copyWith(
       tokens: tokens, title: autoTitle,
       isAnnotating: false, showHarvest: false, starred: {},
+      clearAiTranslation: true, isTranslating: false,
     );
   }
 
@@ -163,17 +167,23 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final cacheKey = 'translate:${state.rawText.hashCode}';
     final cached   = await _db.getCachedAiResponse(cacheKey);
     if (cached != null) {
-      state = state.copyWith(aiTranslation: cached);
+      state = state.copyWith(aiTranslation: cached, translateFailed: false);
       return;
     }
 
-    state = state.copyWith(isTranslating: true);
+    state = state.copyWith(isTranslating: true, translateFailed: false,
+        clearAiTranslation: true);
     final translation = await ai.translateText(state.rawText, settings);
     if (translation != null) {
       await _db.cacheAiResponse(cacheKey, translation);
+      state = state.copyWith(aiTranslation: translation, isTranslating: false,
+          translateFailed: false);
+    } else {
+      // Retries (in AiService) are exhausted — mark failed so the UI can
+      // offer a manual Retry, and drop any stale translation.
+      state = state.copyWith(isTranslating: false, translateFailed: true,
+          clearAiTranslation: true);
     }
-    state = state.copyWith(
-      aiTranslation: translation, isTranslating: false);
   }
 
   void toggleStar(String id) {
@@ -215,7 +225,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       simplified: m['simp'] as String?,
     )).toList();
     state = state.copyWith(tokens: tokens, rawText: h.rawText, title: h.title,
-        isAnnotating: false, showHarvest: false, starred: {});
+        isAnnotating: false, showHarvest: false, starred: {},
+        clearAiTranslation: true, isTranslating: false);
   }
 
   // ── Segmentation ─────────────────────────────────────────────────────────────

@@ -150,6 +150,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final langMode = ref.watch(langModeProvider);
     final isKorean = langMode == LangMode.korean;
 
+    // Keep the paste field in sync when rawText is set from OUTSIDE the reader
+    // (e.g. the Practice Reading screen seeds a story via annotate()). Guard on
+    // inequality so we never clobber what the user is actively typing.
+    ref.listen(readerProvider.select((s) => s.rawText), (_, rawText) {
+      if (rawText.isNotEmpty && _textCtrl.text != rawText) {
+        _textCtrl.text = rawText;
+      }
+    });
+
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(
@@ -417,6 +426,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       tokens: state.tokens,
                       aiTranslation: state.aiTranslation,
                       isTranslating: state.isTranslating,
+                      translateFailed: state.translateFailed,
                       expanded: _showTranslation,
                       onToggle: () => setState(() => _showTranslation = !_showTranslation),
                       onTranslate: () => ref.read(readerProvider.notifier).translateWithAi(),
@@ -464,6 +474,7 @@ class _TranslationCard extends ConsumerStatefulWidget {
   final List<Token> tokens;
   final String? aiTranslation;
   final bool isTranslating;
+  final bool translateFailed;
   final bool expanded;
   final VoidCallback onToggle;
   final VoidCallback onTranslate;
@@ -471,6 +482,7 @@ class _TranslationCard extends ConsumerStatefulWidget {
   const _TranslationCard({
     required this.tokens,
     required this.aiTranslation, required this.isTranslating,
+    required this.translateFailed,
     required this.expanded, required this.onToggle, required this.onTranslate,
   });
 
@@ -538,6 +550,41 @@ class _TranslationCardState extends ConsumerState<_TranslationCard> {
                       decoration: BoxDecoration(color: c.cardBg,
                           borderRadius: BorderRadius.circular(8))),
                 )
+              else if (widget.translateFailed) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.coral.withAlpha(15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.coral.withAlpha(51)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.error_outline, color: AppTheme.coral, size: 14),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Translation failed. Check your '
+                        'connection or API key.',
+                        style: const TextStyle(color: AppTheme.coral,
+                            fontSize: 12, fontWeight: FontWeight.w600))),
+                  ]),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.coral),
+                      foregroundColor: AppTheme.coral,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.refresh, size: 14),
+                    label: const Text('Retry translation',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    onPressed: widget.onTranslate,
+                  ),
+                ),
+              ]
               else if (widget.aiTranslation != null) ...[
                 Text('AI Translation',
                     style: TextStyle(color: c.textMuted, fontSize: 9,

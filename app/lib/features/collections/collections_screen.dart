@@ -6,6 +6,7 @@ import '../../core/services/database_provider.dart';
 import '../../core/services/lang_mode_provider.dart';
 import '../../core/database/database.dart';
 import '../practice/daily_practice_screen.dart';
+import '../practice/practice_reading_screen.dart';
 import 'collection_detail_screen.dart';
 
 // Seeded HSK decks
@@ -143,6 +144,48 @@ class CollectionsScreen extends ConsumerWidget {
                           style: TextStyle(color: AppTheme.hanviet, fontSize: 15,
                               fontWeight: FontWeight.w800)),
                       Text('Practice writing 10 random words',
+                          style: TextStyle(color: c.textMuted, fontSize: 12)),
+                    ])),
+                    Icon(Icons.chevron_right, color: c.textMuted, size: 20),
+                  ]),
+                ),
+              ),
+            ),
+
+            // Practice Reading banner (AI story from learned words)
+            SliverToBoxAdapter(
+              child: GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const PracticeReadingScreen())),
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.semantic.withAlpha(40),
+                        AppTheme.phonetic.withAlpha(30),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.semantic.withAlpha(80), width: 0.5),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 44, height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.semantic.withAlpha(50),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.auto_stories, color: AppTheme.semantic, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Practice Reading',
+                          style: TextStyle(color: AppTheme.semantic, fontSize: 15,
+                              fontWeight: FontWeight.w800)),
+                      Text('AI story from your saved words',
                           style: TextStyle(color: c.textMuted, fontSize: 12)),
                     ])),
                     Icon(Icons.chevron_right, color: c.textMuted, size: 20),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -95,21 +96,34 @@ Chỉ trả về câu chuyện, không có gì khác.''';
 class AiService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const _providerKey    = 'llm_provider';
-  static const _apiKeyKey      = 'llm_api_key';
   static const _baseUrlKey     = 'llm_base_url';
   static const _customModelKey = 'llm_custom_model';
 
+  // Per-provider API key so switching providers doesn't clobber a saved key.
+  // Legacy single-key ('llm_api_key') is migrated into the active provider.
+  static const _legacyApiKeyKey = 'llm_api_key';
+  static String _apiKeyKeyFor(LlmProvider p) => 'llm_api_key_${p.name}';
+
   Future<LlmSettings> loadSettings() async {
     final providerStr = await _storage.read(key: _providerKey);
-    final apiKey      = await _storage.read(key: _apiKeyKey)      ?? '';
     final provider    = LlmProvider.values.firstWhere(
         (p) => p.name == providerStr, orElse: () => LlmProvider.claude);
 
-    // Only load baseUrl/model for custom provider — clear for others
-    final baseUrl     = provider == LlmProvider.custom
-        ? (await _storage.read(key: _baseUrlKey) ?? '') : '';
-    final customModel = provider == LlmProvider.custom
-        ? (await _storage.read(key: _customModelKey) ?? '') : '';
+    var apiKey = await _storage.read(key: _apiKeyKeyFor(provider)) ?? '';
+    // One-time migration: fold the old shared key into the active provider.
+    if (apiKey.isEmpty) {
+      final legacy = await _storage.read(key: _legacyApiKeyKey);
+      if (legacy != null && legacy.isNotEmpty) {
+        apiKey = legacy;
+        await _storage.write(key: _apiKeyKeyFor(provider), value: legacy);
+        await _storage.delete(key: _legacyApiKeyKey);
+      }
+    }
+
+    // Base URL / model belong to the custom provider. Always load them so
+    // they persist when the user switches away and back to Custom.
+    final baseUrl     = await _storage.read(key: _baseUrlKey) ?? '';
+    final customModel = await _storage.read(key: _customModelKey) ?? '';
 
     return LlmSettings(provider: provider, apiKey: apiKey,
         customBaseUrl: baseUrl, customModel: customModel);
@@ -117,16 +131,22 @@ class AiService {
 
   Future<void> saveSettings(LlmSettings settings) async {
     await _storage.write(key: _providerKey, value: settings.provider.name);
-    await _storage.write(key: _apiKeyKey,   value: settings.apiKey);
+    await _storage.write(
+        key: _apiKeyKeyFor(settings.provider), value: settings.apiKey);
+    // Persist custom URL/model whenever provided. Only the custom provider
+    // writes them, and they're harmless for other providers, so we keep them
+    // rather than deleting — so switching away and back preserves them.
     if (settings.provider == LlmProvider.custom) {
       await _storage.write(key: _baseUrlKey,     value: settings.customBaseUrl);
       await _storage.write(key: _customModelKey, value: settings.customModel);
-    } else {
-      // Clear custom fields so they never bleed into other providers
-      await _storage.delete(key: _baseUrlKey);
-      await _storage.delete(key: _customModelKey);
     }
   }
+
+  /// Changes only the active provider selection, leaving every provider's
+  /// stored key intact. Use when the user picks a different provider so we
+  /// then reload THAT provider's own saved key.
+  Future<void> setActiveProvider(LlmProvider provider) =>
+      _storage.write(key: _providerKey, value: provider.name);
 
   Future<String?> generateEtymologyStory({
     required String symbol, required String pinyin,
@@ -156,10 +176,122 @@ Viết câu chuyện Chiết tự ngắn (2-3 câu tiếng Việt):''';
     }
   }
 
-  Future<String?> testConnection(LlmSettings settings) =>
-      generateEtymologyStory(
-        symbol: '一', pinyin: 'yī', hanViet: 'NHẤT', englishDef: 'one',
-        components: [], settings: settings);
+  Future<String?> testConnection(LlmSettings settings) async {
+    // Diagnostic path: unlike production calls, this THROWS with the real
+    // HTTP status + response body so the failure is visible in the Settings
+    // test box on a release APK (where developer.log is invisible).
+    if (!settings.isConfigured) {
+      throw Exception('Not configured: enter an API key'
+          '${settings.provider == LlmProvider.custom ? " and Base URL" : ""}.');
+    }
+    const prompt = 'Chữ: 一\nViết câu chuyện Chiết tự ngắn (2-3 câu tiếng Việt):';
+    final (uri, headers, body) = _buildRequest(settings, prompt);
+    http.Response? resp;
+    // Retry transient statuses (busy/rate-limit) a few times so a one-off 503
+    // doesn't read as a hard failure — same policy as production calls.
+    for (var attempt = 0; attempt < _maxRetries; attempt++) {
+      try {
+        resp = await http
+            .post(uri, headers: headers, body: body)
+            .timeout(const Duration(seconds: 30));
+      } catch (e) {
+        if (attempt == _maxRetries - 1) {
+          throw Exception('Network error reaching $uri\n$e');
+        }
+        await Future.delayed(_retryDelays[attempt]);
+        continue;
+      }
+      if (_retryableStatus.contains(resp.statusCode) &&
+          attempt < _maxRetries - 1) {
+        await Future.delayed(_retryDelays[attempt]);
+        continue;
+      }
+      break;
+    }
+    if (resp!.statusCode != 200) {
+      throw Exception('HTTP ${resp.statusCode} from $uri\n${resp.body}');
+    }
+    final text = _extractText(settings.provider, resp.body);
+    if (text == null) {
+      throw Exception('HTTP 200 but no text in response:\n${resp.body}');
+    }
+    return text;
+  }
+
+  /// Builds the (uri, headers, body) for a provider — shared by the test path.
+  (Uri, Map<String, String>, String) _buildRequest(
+      LlmSettings settings, String prompt,
+      {String? systemPrompt, int maxTokens = 512}) {
+    final sys = systemPrompt ?? _systemPrompt;
+    switch (settings.provider) {
+      case LlmProvider.claude:
+        return (
+          Uri.parse('https://api.anthropic.com/v1/messages'),
+          {
+            'Content-Type':      'application/json',
+            'x-api-key':         settings.apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          jsonEncode({
+            'model': 'claude-haiku-4-5', 'max_tokens': maxTokens,
+            'system': sys,
+            'messages': [{'role': 'user', 'content': prompt}],
+          }),
+        );
+      case LlmProvider.gemini:
+        return (
+          Uri.parse('https://generativelanguage.googleapis.com/v1beta/'
+              'models/gemini-flash-latest:generateContent?key=${settings.apiKey}'),
+          {'Content-Type': 'application/json'},
+          jsonEncode({
+            'system_instruction': {'parts': [{'text': sys}]},
+            'contents': [{'parts': [{'text': prompt}]}],
+            'generationConfig': {'maxOutputTokens': maxTokens},
+          }),
+        );
+      case LlmProvider.openai:
+        return _openAiCompatRequest(
+            settings.apiKey, 'https://api.openai.com', 'gpt-4o-mini', prompt,
+            systemPrompt: sys, maxTokens: maxTokens);
+      case LlmProvider.custom:
+        return _openAiCompatRequest(
+            settings.apiKey, settings.customBaseUrl,
+            settings.customModel.isNotEmpty ? settings.customModel : 'gpt-4o-mini',
+            prompt, systemPrompt: sys, maxTokens: maxTokens);
+    }
+  }
+
+  (Uri, Map<String, String>, String) _openAiCompatRequest(
+      String apiKey, String baseUrl, String model, String prompt,
+      {String? systemPrompt, int maxTokens = 512}) => (
+    Uri.parse('$baseUrl/v1/chat/completions'),
+    {
+      'Content-Type':  'application/json',
+      'Authorization': 'Bearer $apiKey',
+    },
+    jsonEncode({
+      'model': model, 'max_tokens': maxTokens,
+      'messages': [
+        {'role': 'system', 'content': systemPrompt ?? _systemPrompt},
+        {'role': 'user',   'content': prompt},
+      ],
+    }),
+  );
+
+  String? _extractText(LlmProvider provider, String responseBody) {
+    final data = jsonDecode(responseBody) as Map<String, dynamic>;
+    switch (provider) {
+      case LlmProvider.claude:
+        final content = data['content'] as List?;
+        if (content == null || content.isEmpty) return null;
+        return (content.first as Map)['text'] as String?;
+      case LlmProvider.gemini:
+        return data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
+      case LlmProvider.openai:
+      case LlmProvider.custom:
+        return data['choices']?[0]?['message']?['content'] as String?;
+    }
+  }
 
   Future<String?> translateText(String chineseText, LlmSettings settings) async {
     if (!settings.isConfigured) return null;
@@ -170,6 +302,77 @@ Viết câu chuyện Chiết tự ngắn (2-3 câu tiếng Việt):''';
     } catch (_) {
       return null;
     }
+  }
+
+  /// Generates a short graded-reader passage built mostly from the learner's
+  /// own [words] (their bookmarked + memorized vocabulary), in Chinese or
+  /// Korean. THROWS with the real HTTP status/body/timeout on failure so the
+  /// failure is visible on a release APK (where developer.log is invisible);
+  /// mirrors [testConnection]'s retry loop. Returns only the story text.
+  Future<String> generateReadingStoryDiagnostic({
+    required List<String> words,
+    required bool isKorean,
+    required LlmSettings settings,
+  }) async {
+    if (!settings.isConfigured) {
+      throw Exception('Not configured: enter an API key'
+          '${settings.provider == LlmProvider.custom ? " and Base URL" : ""}.');
+    }
+    if (words.isEmpty) throw Exception('No learned words to build a story from.');
+
+    final (uri, headers, body) = _buildRequest(
+        settings, _storyPrompt(words, isKorean),
+        systemPrompt: _storySystemPrompt(isKorean), maxTokens: 1024);
+    http.Response? resp;
+    for (var attempt = 0; attempt < _maxRetries; attempt++) {
+      try {
+        resp = await http
+            .post(uri, headers: headers, body: body)
+            .timeout(const Duration(seconds: 60));
+      } catch (e) {
+        if (attempt == _maxRetries - 1) {
+          throw Exception('Network error / timeout reaching $uri\n$e');
+        }
+        await Future.delayed(_retryDelays[attempt]);
+        continue;
+      }
+      if (_retryableStatus.contains(resp.statusCode) &&
+          attempt < _maxRetries - 1) {
+        await Future.delayed(_retryDelays[attempt]);
+        continue;
+      }
+      break;
+    }
+    if (resp!.statusCode != 200) {
+      throw Exception('HTTP ${resp.statusCode} from $uri\n${resp.body}');
+    }
+    final text = _extractText(settings.provider, resp.body);
+    if (text == null || text.trim().isEmpty) {
+      throw Exception('HTTP 200 but no story text in response:\n${resp.body}');
+    }
+    return text;
+  }
+
+  String _storySystemPrompt(bool isKorean) {
+    final lang = isKorean ? 'Korean (Hangul)' : 'Simplified Chinese';
+    return 'You are a language teacher writing very short, simple graded-reader '
+        'passages for a beginner learning $lang. Your passages are built mostly '
+        'from a given list of target words, connected with only the simplest '
+        'possible glue vocabulary and grammar. Keep it concrete, coherent, and '
+        'easy to read.';
+  }
+
+  String _storyPrompt(List<String> words, bool isKorean) {
+    final lang = isKorean ? 'Korean (Hangul)' : 'Simplified Chinese';
+    final wordList = words.map((w) => '- $w').join('\n');
+    return 'Write a short $lang story (2–4 short paragraphs) for reading practice.\n'
+        'Use as MANY of these target words as you naturally can, weaving them '
+        'into a single coherent little story:\n\n$wordList\n\n'
+        'Rules:\n'
+        '- Write ONLY in $lang script (no pinyin/romaja, no English).\n'
+        '- Keep sentences short and simple; use only easy connective words '
+        'beyond the target words.\n'
+        '- Return ONLY the story text, nothing else.';
   }
 
   Future<WordDetails?> generateWordDetails(
@@ -210,84 +413,181 @@ Viết câu chuyện Chiết tự ngắn (2-3 câu tiếng Việt):''';
     }
   }
 
-  Future<String?> _dispatch(LlmSettings settings, String prompt) =>
-      _dispatchRaw(settings, prompt);
+  Future<String?> _dispatch(LlmSettings settings, String prompt,
+          {String? systemPrompt, int maxTokens = 512,
+           Duration timeout = const Duration(seconds: 30)}) =>
+      _dispatchRaw(settings, prompt,
+          systemPrompt: systemPrompt, maxTokens: maxTokens, timeout: timeout);
 
-  Future<String?> _dispatchRaw(LlmSettings settings, String prompt) {
+  /// Transient status codes worth retrying: rate-limit + server-side blips.
+  static const _retryableStatus = {429, 500, 502, 503, 504};
+  static const _maxRetries = 3; // total attempts
+  static const _retryDelays = [
+    Duration(milliseconds: 800),
+    Duration(milliseconds: 2000),
+  ];
+
+  Future<String?> _dispatchRaw(LlmSettings settings, String prompt,
+      {String? systemPrompt, int maxTokens = 512,
+       Duration timeout = const Duration(seconds: 30)}) async {
+    for (var attempt = 0; attempt < _maxRetries; attempt++) {
+      try {
+        return await _callProvider(settings, prompt,
+            systemPrompt: systemPrompt, maxTokens: maxTokens, timeout: timeout);
+      } on _RetryableException catch (e) {
+        final isLast = attempt == _maxRetries - 1;
+        developer.log(
+            'Transient LLM failure (${e.reason}), attempt '
+            '${attempt + 1}/$_maxRetries${isLast ? " — giving up" : " — retrying"}',
+            name: 'AiService.Retry');
+        if (isLast) return null;
+        await Future.delayed(_retryDelays[attempt]);
+      } catch (e) {
+        // Non-retryable (bad key, 404, parse error): fail fast.
+        developer.log('Non-retryable LLM failure: $e', name: 'AiService.Retry');
+        return null;
+      }
+    }
+    return null;
+  }
+
+  Future<String?> _callProvider(LlmSettings settings, String prompt,
+      {String? systemPrompt, int maxTokens = 512,
+       Duration timeout = const Duration(seconds: 30)}) {
     switch (settings.provider) {
       case LlmProvider.claude:
-        return _callClaude(settings.apiKey, prompt);
+        return _callClaude(settings.apiKey, prompt,
+            systemPrompt: systemPrompt, maxTokens: maxTokens, timeout: timeout);
       case LlmProvider.gemini:
-        return _callGemini(settings.apiKey, prompt);
+        return _callGemini(settings.apiKey, prompt,
+            systemPrompt: systemPrompt, maxTokens: maxTokens, timeout: timeout);
       case LlmProvider.openai:
         return _callOpenAiCompat(settings.apiKey, 'https://api.openai.com',
-            prompt, model: 'gpt-4o-mini');
+            prompt, model: 'gpt-4o-mini',
+            systemPrompt: systemPrompt, maxTokens: maxTokens, timeout: timeout);
       case LlmProvider.custom:
         if (settings.customBaseUrl.isEmpty) return Future.value(null);
         return _callOpenAiCompat(settings.apiKey, settings.customBaseUrl,
             prompt, model: settings.customModel.isNotEmpty
-                ? settings.customModel : 'gpt-4o-mini');
+                ? settings.customModel : 'gpt-4o-mini',
+            systemPrompt: systemPrompt, maxTokens: maxTokens, timeout: timeout);
     }
   }
 
-  Future<String?> _callClaude(String apiKey, String prompt) async {
+  Future<String?> _callClaude(String apiKey, String prompt,
+      {String? systemPrompt, int maxTokens = 512,
+       Duration timeout = const Duration(seconds: 30)}) async {
     final uri = Uri.parse('https://api.anthropic.com/v1/messages');
-    final response = await http.post(uri,
-      headers: {
-        'Content-Type':      'application/json',
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: jsonEncode({
-        'model': 'claude-haiku-4-5', 'max_tokens': 512,
-        'system': _systemPrompt,
-        'messages': [{'role': 'user', 'content': prompt}],
-      }),
-    ).timeout(const Duration(seconds: 30));
-    if (response.statusCode != 200) return null;
+    final http.Response response;
+    try {
+      response = await http.post(uri,
+        headers: {
+          'Content-Type':      'application/json',
+          'x-api-key':         apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: jsonEncode({
+          'model': 'claude-haiku-4-5', 'max_tokens': maxTokens,
+          'system': systemPrompt ?? _systemPrompt,
+          'messages': [{'role': 'user', 'content': prompt}],
+        }),
+      ).timeout(timeout);
+    } catch (e) {
+      // Network errors / timeouts are transient — let the retry loop handle it.
+      throw _RetryableException('network: $e');
+    }
+    developer.log('Claude API response: ${response.statusCode}', name: 'AiService.Claude');
+    if (_retryableStatus.contains(response.statusCode)) {
+      throw _RetryableException('HTTP ${response.statusCode}');
+    }
+    if (response.statusCode != 200) {
+      developer.log('Claude error body: ${response.body}', name: 'AiService.Claude');
+      return null;
+    }
     final data    = jsonDecode(response.body) as Map<String, dynamic>;
     final content = data['content'] as List?;
     if (content == null || content.isEmpty) return null;
     return (content.first as Map)['text'] as String?;
   }
 
-  Future<String?> _callGemini(String apiKey, String prompt) async {
+  Future<String?> _callGemini(String apiKey, String prompt,
+      {String? systemPrompt, int maxTokens = 512,
+       Duration timeout = const Duration(seconds: 30)}) async {
     final uri = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey');
-    final response = await http.post(uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'system_instruction': {'parts': [{'text': _systemPrompt}]},
-        'contents': [{'parts': [{'text': prompt}]}],
-        'generationConfig': {'maxOutputTokens': 512},
-      }),
-    ).timeout(const Duration(seconds: 30));
-    if (response.statusCode != 200) return null;
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$apiKey');
+    final http.Response response;
+    try {
+      developer.log('Gemini request to: $uri', name: 'AiService.Gemini');
+      response = await http.post(uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'system_instruction': {'parts': [{'text': systemPrompt ?? _systemPrompt}]},
+          'contents': [{'parts': [{'text': prompt}]}],
+          'generationConfig': {'maxOutputTokens': maxTokens},
+        }),
+      ).timeout(timeout);
+    } catch (e) {
+      throw _RetryableException('network: $e');
+    }
+    developer.log('Gemini response: ${response.statusCode}', name: 'AiService.Gemini');
+    if (_retryableStatus.contains(response.statusCode)) {
+      throw _RetryableException('HTTP ${response.statusCode}');
+    }
+    if (response.statusCode != 200) {
+      developer.log('Gemini error body: ${response.body}', name: 'AiService.Gemini');
+      return null;
+    }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
   }
 
   Future<String?> _callOpenAiCompat(String apiKey, String baseUrl, String prompt,
-      {String model = 'gpt-4o-mini'}) async {
+      {String model = 'gpt-4o-mini', String? systemPrompt, int maxTokens = 512,
+       Duration timeout = const Duration(seconds: 30)}) async {
     if (baseUrl.isEmpty) return null;
     final uri = Uri.parse('$baseUrl/v1/chat/completions');
-    final response = await http.post(uri,
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': 'Bearer $apiKey',
-      },
-      body: jsonEncode({
-        'model': model, 'max_tokens': 512,
-        'messages': [
-          {'role': 'system', 'content': _systemPrompt},
-          {'role': 'user',   'content': prompt},
-        ],
-      }),
-    ).timeout(const Duration(seconds: 30));
-    if (response.statusCode != 200) return null;
+    final http.Response response;
+    try {
+      developer.log('OpenAI-compat request to: $uri (model: $model)',
+          name: 'AiService.OpenAiCompat');
+      response = await http.post(uri,
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'model': model, 'max_tokens': maxTokens,
+          'messages': [
+            {'role': 'system', 'content': systemPrompt ?? _systemPrompt},
+            {'role': 'user',   'content': prompt},
+          ],
+        }),
+      ).timeout(timeout);
+    } catch (e) {
+      throw _RetryableException('network: $e');
+    }
+    developer.log('OpenAI-compat response: ${response.statusCode}',
+        name: 'AiService.OpenAiCompat');
+    if (_retryableStatus.contains(response.statusCode)) {
+      throw _RetryableException('HTTP ${response.statusCode}');
+    }
+    if (response.statusCode != 200) {
+      developer.log('OpenAI-compat error body: ${response.body}',
+          name: 'AiService.OpenAiCompat');
+      return null;
+    }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return data['choices']?[0]?['message']?['content'] as String?;
   }
+}
+
+/// Thrown by provider calls on transient failures (rate-limit, 5xx, network
+/// timeout) so [_dispatchRaw]'s retry loop can back off and try again.
+class _RetryableException implements Exception {
+  final String reason;
+  _RetryableException(this.reason);
+  @override
+  String toString() => 'RetryableException: $reason';
 }
 
 final aiServiceProvider = Provider<AiService>((ref) => AiService());

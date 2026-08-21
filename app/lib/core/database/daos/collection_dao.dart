@@ -443,6 +443,52 @@ class CollectionDao {
     return rows.map((r) => r.read<String>('display')).toList();
   }
 
+  /// A random sample of display forms (Chinese chars/words or Korean hangul)
+  /// from everything the learner has collected — bookmarks + memorized. Used to
+  /// seed the AI practice-reading story. Random (not most-recent) so every
+  /// generation reviews a different slice of the whole pool. No HSK fallback:
+  /// these are strictly the user's own words.
+  Future<List<String>> getLearnedWordForms(
+      {required bool isKorean, int limit = 30}) async {
+    // For Korean, take hangul (compound_words.hangul + korean_words.hangul);
+    // characters are Chinese so they're excluded in KR mode.
+    final sql = isKorean
+        ? '''
+          SELECT display FROM (
+            SELECT cw.hangul as display
+            FROM user_collection_words ucw
+            JOIN compound_words cw ON cw.id = ucw.word_id
+            WHERE ucw.collection_id IN ('bookmarks','memorized')
+              AND cw.hangul IS NOT NULL AND cw.hangul != ''
+            UNION ALL
+            SELECT kw.hangul as display
+            FROM user_collection_words ucw
+            JOIN korean_words kw ON kw.id = ucw.word_id
+            WHERE ucw.collection_id IN ('bookmarks','memorized')
+          ) ORDER BY RANDOM() LIMIT ?
+        '''
+        : '''
+          SELECT display FROM (
+            SELECT c.symbol as display
+            FROM user_collection_words ucw
+            JOIN characters c ON c.id = ucw.word_id
+            WHERE ucw.collection_id IN ('bookmarks','memorized')
+            UNION ALL
+            SELECT cw.simplified as display
+            FROM user_collection_words ucw
+            JOIN compound_words cw ON cw.id = ucw.word_id
+            WHERE ucw.collection_id IN ('bookmarks','memorized')
+          ) ORDER BY RANDOM() LIMIT ?
+        ''';
+    final rows = await _db.customSelect(sql,
+        variables: [Variable(limit)],
+        readsFrom: {
+          _db.userCollectionWords, _db.characters,
+          _db.compoundWords, _db.koreanWords,
+        }).get();
+    return rows.map((r) => r.read<String>('display')).toList();
+  }
+
   /// Returns character, compound word, and native Korean word bookmarks, most recent first.
   Future<List<CollectionItem>> getBookmarkedItems() async {
     final rows = await _db.customSelect('''

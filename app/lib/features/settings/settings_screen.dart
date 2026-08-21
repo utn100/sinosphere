@@ -108,6 +108,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             // ── LLM Provider ──────────────────────────────────────────
             _SectionHeader(label: 'AI PROVIDER', c: c),
             const SizedBox(height: 8),
+            _FreeProviderHint(c: c),
+            const SizedBox(height: 12),
             settings.when(
               loading: () => const CircularProgressIndicator(strokeWidth: 2),
               error: (_, _) => const SizedBox.shrink(),
@@ -115,26 +117,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 children: [
                   _ProviderPicker(
                     current: s.provider,
-                    onChanged: (provider) {
-                      // Clear custom fields when switching away from Custom
-                      if (provider != LlmProvider.custom) {
-                        _urlCtrl.clear();
-                        _modelCtrl.clear();
-                      }
-                      ref.read(llmSettingsProvider.notifier).save(
-                        s.copyWith(
-                          provider: provider,
-                          customBaseUrl: provider != LlmProvider.custom ? '' : s.customBaseUrl,
-                          customModel:   provider != LlmProvider.custom ? '' : s.customModel,
-                        ));
-                    },
+                    onChanged: (provider) => _switchProvider(provider),
                   ),
                   const SizedBox(height: 12),
                   // Custom base URL + model (only for custom provider)
                   if (s.provider == LlmProvider.custom) ...[
                     _LabeledField(
                       label: 'Base URL',
-                      hint: 'https://your-openai-compatible-proxy.com',
+                      hint: 'https://api.groq.com/openai',
                       controller: _urlCtrl,
                       onChanged: (v) => ref
                           .read(llmSettingsProvider.notifier)
@@ -143,7 +133,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(height: 8),
                     _LabeledField(
                       label: 'Model Name',
-                      hint: 'claude-haiku-4-5 / llama3 / mistral / …',
+                      hint: 'openai/gpt-oss-20b',
                       controller: _modelCtrl,
                       onChanged: (v) => ref
                           .read(llmSettingsProvider.notifier)
@@ -203,7 +193,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         color: AppTheme.semantic.withAlpha(26),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(_testResult!,
+                      child: SelectableText(_testResult!,
                           style: const TextStyle(
                               color: AppTheme.semantic, fontSize: 12)),
                     ),
@@ -374,15 +364,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  /// Switch provider, persisting the current provider's key first, then
+  /// loading the newly-selected provider's own stored key/URL/model into the
+  /// fields — so each provider keeps its own credentials.
+  Future<void> _switchProvider(LlmProvider provider) async {
+    final ai = ref.read(aiServiceProvider);
+    // Persist whatever is currently typed under the CURRENT provider.
+    final current = ref.read(llmSettingsProvider).value;
+    if (current != null) {
+      await ai.saveSettings(current.copyWith(
+        apiKey: _keyCtrl.text,
+        customBaseUrl: current.provider == LlmProvider.custom ? _urlCtrl.text : null,
+        customModel:   current.provider == LlmProvider.custom ? _modelCtrl.text : null,
+      ));
+    }
+    // Switch the active provider (leaves every provider's key intact), then
+    // reload the NEW provider's own stored credentials into the fields.
+    await ai.setActiveProvider(provider);
+    final reloaded = await ai.loadSettings();
+    if (!mounted) return;
+    _keyCtrl.text   = reloaded.apiKey;
+    _urlCtrl.text   = reloaded.customBaseUrl;
+    _modelCtrl.text = reloaded.customModel;
+    setState(() => _testResult = null);
+    ref.invalidate(llmSettingsProvider);
+  }
+
   Future<void> _testConnection(LlmSettings s) async {
     setState(() { _testing = true; _testResult = null; });
     final ai     = ref.read(aiServiceProvider);
-    final result = await ai.testConnection(s);
+    String? result;
+    String? errorMsg;
+    try {
+      result = await ai.testConnection(s);
+    } catch (e) {
+      errorMsg = e.toString();
+    }
     setState(() {
-      _testing   = false;
-      _testResult = result != null
-          ? '✓ Connected — sample story for 一:\n$result'
-          : '✗ Connection failed. Check your API key and try again.';
+      _testing = false;
+      if (result != null) {
+        _testResult = '✓ Connected — sample story for 一:\n$result';
+      } else if (errorMsg != null) {
+        _testResult = '✗ Connection failed:\n$errorMsg';
+      } else {
+        _testResult = '✗ Connection failed. Check your API key and try again.';
+      }
     });
   }
 }
@@ -567,4 +593,50 @@ String _timeLabel(int hour, int minute) {
   final ampm = hour < 12 ? 'AM' : 'PM';
   final m = minute.toString().padLeft(2, '0');
   return '$h:$m $ampm';
+}
+
+/// Small info banner pointing users at free ways to power the AI features.
+class _FreeProviderHint extends StatelessWidget {
+  final dynamic c;
+  const _FreeProviderHint({required this.c});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.semantic.withAlpha(20),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.semantic.withAlpha(60)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.auto_awesome, size: 16, color: AppTheme.semantic),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Use AI for free',
+                    style: TextStyle(
+                        color: c.text, fontSize: 13,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(
+                  'Both have free tiers — no card needed:\n'
+                  '• Gemini Flash — get a key at aistudio.google.com\n'
+                  '• Groq (Custom Endpoint) — Base URL '
+                  'https://api.groq.com/openai, model openai/gpt-oss-20b, '
+                  'key from console.groq.com',
+                  style: TextStyle(
+                      color: c.textMuted, fontSize: 11, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
