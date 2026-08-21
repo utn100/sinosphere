@@ -3,6 +3,7 @@ import '../database.dart';
 
 const String bookmarksCollectionId   = 'bookmarks';
 const String bookmarksCollectionName = 'Bookmarks';
+const String memorizedCollectionId   = 'memorized';
 
 class CollectionItem {
   final String id;
@@ -103,7 +104,90 @@ class CollectionDao {
     )).toList();
   }
 
-  static const _memorizedId = 'memorized';
+  /// Total memorized words for the current language mode (distinct across all
+  /// deck buckets). ZH counts characters + compounds; KR counts only verified
+  /// Sino-Korean compounds (kr_verified, len>=2) + native Korean words — matching
+  /// the app-wide KR-eligibility rule so Chinese-only words never leak into KR.
+  Future<int> getTotalMemorizedCount({required bool isKorean}) async {
+    final modeFilter = isKorean ? 'kr_ok = 1' : 'src IN (1, 2)';
+    final row = await _db.customSelect('''
+      SELECT COUNT(*) as cnt FROM (
+        SELECT DISTINCT id FROM (
+          SELECT 1 as src, c.id, 0 as kr_ok
+          FROM user_collection_words ucw JOIN characters c ON c.id = ucw.word_id
+          WHERE ucw.collection_id LIKE 'memorized%'
+          UNION ALL
+          SELECT 2 as src, cw.id,
+                 CASE WHEN cw.kr_verified = 1 AND LENGTH(cw.hangul) >= 2 THEN 1 ELSE 0 END as kr_ok
+          FROM user_collection_words ucw JOIN compound_words cw ON cw.id = ucw.word_id
+          WHERE ucw.collection_id LIKE 'memorized%'
+          UNION ALL
+          SELECT 3 as src, kw.id, 1 as kr_ok
+          FROM user_collection_words ucw JOIN korean_words kw ON kw.id = ucw.word_id
+          WHERE ucw.collection_id LIKE 'memorized%'
+        ) WHERE $modeFilter
+      )
+    ''', readsFrom: {
+      _db.userCollectionWords, _db.characters, _db.compoundWords, _db.koreanWords
+    }).getSingle();
+    return row.read<int>('cnt');
+  }
+
+  /// All memorized words for the current mode (distinct across deck buckets),
+  /// for the Memorized folder drill-in. Same mode predicate as the count so the
+  /// list and the card count always agree.
+  Future<List<CollectionItem>> getMemorizedItems({required bool isKorean}) async {
+    final modeFilter = isKorean ? 'kr_ok = 1' : 'src IN (1, 2)';
+    final rows = await _db.customSelect('''
+      SELECT src, id, display, han_viet, pinyin, english_def, hangul,
+             MAX(added_at) as added_at FROM (
+        SELECT 1 as src, c.id, c.symbol as display, c.han_viet, c.pinyin,
+               c.english_def, NULL as hangul, 0 as kr_ok, ucw.added_at
+        FROM user_collection_words ucw JOIN characters c ON c.id = ucw.word_id
+        WHERE ucw.collection_id LIKE 'memorized%'
+        UNION ALL
+        SELECT 2 as src, cw.id, cw.simplified as display, cw.han_viet, cw.pinyin,
+               cw.english_def, cw.hangul,
+               CASE WHEN cw.kr_verified = 1 AND LENGTH(cw.hangul) >= 2 THEN 1 ELSE 0 END as kr_ok,
+               ucw.added_at
+        FROM user_collection_words ucw JOIN compound_words cw ON cw.id = ucw.word_id
+        WHERE ucw.collection_id LIKE 'memorized%'
+        UNION ALL
+        SELECT 3 as src, kw.id, kw.hangul as display, '' as han_viet,
+               COALESCE(kw.romaja, '') as pinyin, kw.english_def, kw.hangul, 1 as kr_ok,
+               ucw.added_at
+        FROM user_collection_words ucw JOIN korean_words kw ON kw.id = ucw.word_id
+        WHERE ucw.collection_id LIKE 'memorized%'
+      ) WHERE $modeFilter
+      GROUP BY id
+      ORDER BY added_at DESC LIMIT 40
+    ''', readsFrom: {
+      _db.userCollectionWords, _db.characters, _db.compoundWords, _db.koreanWords
+    }).get();
+
+    return rows.map((r) => CollectionItem(
+      id:         r.read<String>('id'),
+      display:    r.read<String>('display'),
+      hangul:     r.readNullable<String>('hangul'),
+      hanViet:    r.read<String>('han_viet'),
+      pinyin:     r.read<String>('pinyin'),
+      englishDef: r.read<String>('english_def'),
+      isChar:     r.read<int>('src') == 1,
+    )).toList();
+  }
+
+
+  // Memorized words are stored in per-deck buckets so progress in one deck never
+  // moves another deck's bar. Each bucket's collection_id starts with the literal
+  // `memorized` prefix, so `LIKE 'memorized%'` yields the union across all decks
+  // (and also catches any legacy flat 'memorized' rows from before this scheme).
+  static const memorizedPrefix = 'memorized';
+  // Canonical collection id for the single "Memorized" folder card row.
+  static const _memorizedId = memorizedCollectionId;
+  static String hskScope(int level) => 'memorized:hsk:$level';
+  static String topikScope(List<int> levels) =>
+      'memorized:topik:${levels.join(',')}';
+  static String topicScope(String topicId) => 'memorized:topic:$topicId';
 
   Future<void> _ensureMemorizedCollection() async {
     final existing = await (_db.select(_db.userCollections)
@@ -124,27 +208,38 @@ class CollectionDao {
       SELECT ucw.word_id FROM user_collection_words ucw
       JOIN compound_words cw ON cw.id = ucw.word_id
       WHERE ucw.collection_id = ? AND cw.hsk_level = ?
-    ''', variables: [const Variable(_memorizedId), Variable(hskLevel)],
+    ''', variables: [Variable(hskScope(hskLevel)), Variable(hskLevel)],
         readsFrom: {_db.userCollectionWords, _db.compoundWords}).get();
+    return rows.map((r) => r.read<String>('word_id')).toSet();
+  }
+
+  /// Raw memorized word_ids for a specific deck bucket (used by the Topic screen).
+  Future<Set<String>> getMemorizedWordIdsByScope(String scopeId) async {
+    final rows = await _db.customSelect(
+      'SELECT word_id FROM user_collection_words WHERE collection_id = ?',
+      variables: [Variable(scopeId)],
+      readsFrom: {_db.userCollectionWords},
+    ).get();
     return rows.map((r) => r.read<String>('word_id')).toSet();
   }
 
   /// Returns memorized IDs scoped to a specific TOPIK band — never bleeds into HSK.
   Future<Set<String>> getMemorizedWordIdsByTopikLevels(List<int> levels) async {
     final placeholders = levels.map((_) => '?').join(',');
+    final scope = topikScope(levels);
     final r1 = await _db.customSelect(
       'SELECT ucw.word_id FROM user_collection_words ucw '
       'JOIN compound_words cw ON cw.id = ucw.word_id '
       'WHERE ucw.collection_id = ? AND cw.topik_level IN ($placeholders) '
       'AND cw.topik_in_source = 1 AND LENGTH(cw.hangul) >= 2',
-      variables: [const Variable(_memorizedId), ...levels.map(Variable.new)],
+      variables: [Variable(scope), ...levels.map(Variable.new)],
       readsFrom: {_db.userCollectionWords, _db.compoundWords},
     ).get();
     final r2 = await _db.customSelect(
       'SELECT ucw.word_id FROM user_collection_words ucw '
       'JOIN korean_words kw ON kw.id = ucw.word_id '
       'WHERE ucw.collection_id = ? AND kw.topik_level IN ($placeholders)',
-      variables: [const Variable(_memorizedId), ...levels.map(Variable.new)],
+      variables: [Variable(scope), ...levels.map(Variable.new)],
       readsFrom: {_db.userCollectionWords, _db.koreanWords},
     ).get();
     return {
@@ -158,46 +253,47 @@ class CollectionDao {
       SELECT COUNT(*) as cnt FROM user_collection_words ucw
       JOIN compound_words cw ON cw.id = ucw.word_id
       WHERE ucw.collection_id = ? AND cw.hsk_level = ?
-    ''', variables: [const Variable(_memorizedId), Variable(level)],
+    ''', variables: [Variable(hskScope(level)), Variable(level)],
         readsFrom: {_db.userCollectionWords, _db.compoundWords}).getSingle();
     return row.read<int>('cnt');
   }
 
   Future<int> getMemorizedCountByTopik(List<int> levels) async {
     final placeholders = levels.map((_) => '?').join(', ');
+    final scope = topikScope(levels);
     final r1 = await _db.customSelect(
       'SELECT COUNT(*) as cnt FROM user_collection_words ucw '
       'JOIN compound_words cw ON cw.id = ucw.word_id '
       'WHERE ucw.collection_id = ? AND cw.topik_level IN ($placeholders) '
       'AND cw.topik_in_source = 1 AND LENGTH(cw.hangul) >= 2',
-      variables: [const Variable(_memorizedId), ...levels.map(Variable.new)],
+      variables: [Variable(scope), ...levels.map(Variable.new)],
       readsFrom: {_db.userCollectionWords, _db.compoundWords},
     ).getSingle();
     final r2 = await _db.customSelect(
       'SELECT COUNT(*) as cnt FROM user_collection_words ucw '
       'JOIN korean_words kw ON kw.id = ucw.word_id '
       'WHERE ucw.collection_id = ? AND kw.topik_level IN ($placeholders)',
-      variables: [const Variable(_memorizedId), ...levels.map(Variable.new)],
+      variables: [Variable(scope), ...levels.map(Variable.new)],
       readsFrom: {_db.userCollectionWords, _db.koreanWords},
     ).getSingle();
     return r1.read<int>('cnt') + r2.read<int>('cnt');
   }
 
-  Future<void> toggleMemorized(String wordId) async {
+  Future<void> toggleMemorized(String scopeId, String wordId) async {
     await _ensureMemorizedCollection();
     final existing = await (_db.select(_db.userCollectionWords)
-          ..where((w) => w.collectionId.equals(_memorizedId))
+          ..where((w) => w.collectionId.equals(scopeId))
           ..where((w) => w.wordId.equals(wordId)))
         .getSingleOrNull();
     if (existing != null) {
       await (_db.delete(_db.userCollectionWords)
-            ..where((w) => w.collectionId.equals(_memorizedId))
+            ..where((w) => w.collectionId.equals(scopeId))
             ..where((w) => w.wordId.equals(wordId)))
           .go();
     } else {
       await _db.into(_db.userCollectionWords).insert(
         UserCollectionWordsCompanion(
-          collectionId: const Value(_memorizedId),
+          collectionId: Value(scopeId),
           wordId: Value(wordId),
           addedAt: Value(DateTime.now().millisecondsSinceEpoch),
         ),
@@ -206,58 +302,36 @@ class CollectionDao {
   }
 
   Future<void> resetMemorized(int hskLevel) async {
-    await _db.customStatement('''
-      DELETE FROM user_collection_words
-      WHERE collection_id = '$_memorizedId'
-      AND word_id IN (
-        SELECT id FROM compound_words WHERE hsk_level = $hskLevel
-      )
-    ''');
+    await _db.customStatement(
+      "DELETE FROM user_collection_words WHERE collection_id = ?",
+      [hskScope(hskLevel)],
+    );
   }
 
-  Future<Set<String>> getMemorizedWordIdsByTopik(int topikLevel) async {
-    final rows = await _db.customSelect('''
-      SELECT ucw.word_id FROM user_collection_words ucw
-      JOIN compound_words cw ON cw.id = ucw.word_id
-      WHERE ucw.collection_id = ? AND cw.topik_level = ?
-    ''', variables: [const Variable(_memorizedId), Variable(topikLevel)],
-        readsFrom: {_db.userCollectionWords, _db.compoundWords}).get();
-    return rows.map((r) => r.read<String>('word_id')).toSet();
+  /// Deletes every memorized row for a single deck bucket (HSK/TOPIK/topic).
+  Future<void> resetMemorizedByScope(String scopeId) async {
+    await _db.customStatement(
+      "DELETE FROM user_collection_words WHERE collection_id = ?",
+      [scopeId],
+    );
   }
 
-  Future<void> resetMemorizedByTopik(int topikLevel) async {
-    await _db.customStatement('''
-      DELETE FROM user_collection_words
-      WHERE collection_id = '$_memorizedId'
-      AND word_id IN (
-        SELECT id FROM compound_words WHERE topik_level = $topikLevel
-      )
-    ''');
-    await _db.customStatement('''
-      DELETE FROM user_collection_words
-      WHERE collection_id = '$_memorizedId'
-      AND word_id IN (
-        SELECT id FROM korean_words WHERE topik_level = $topikLevel
-      )
-    ''');
-  }
-
-  /// Returns ALL word IDs in the memorized collection — used by topic/shared collections.
+  /// Returns ALL memorized word IDs across every deck bucket (union) — used by
+  /// practice pools and shared collections. DISTINCT via the Set return type.
   Future<Set<String>> getAllMemorizedWordIds() async {
     final rows = await _db.customSelect(
-      'SELECT word_id FROM user_collection_words WHERE collection_id = ?',
-      variables: [const Variable(_memorizedId)],
+      "SELECT word_id FROM user_collection_words WHERE collection_id LIKE 'memorized%'",
       readsFrom: {_db.userCollectionWords},
     ).get();
     return rows.map((r) => r.read<String>('word_id')).toSet();
   }
 
-  /// Removes specific word IDs from the memorized collection (for topic/TOPIK resets).
-  Future<void> resetMemorizedForWords(List<String> wordIds) async {
+  /// Removes specific word IDs from a deck's memorized bucket.
+  Future<void> resetMemorizedForWords(String scopeId, List<String> wordIds) async {
     if (wordIds.isEmpty) return;
     for (final id in wordIds) {
       await (_db.delete(_db.userCollectionWords)
-            ..where((w) => w.collectionId.equals(_memorizedId))
+            ..where((w) => w.collectionId.equals(scopeId))
             ..where((w) => w.wordId.equals(id)))
           .go();
     }
@@ -458,13 +532,13 @@ class CollectionDao {
             SELECT cw.hangul as display
             FROM user_collection_words ucw
             JOIN compound_words cw ON cw.id = ucw.word_id
-            WHERE ucw.collection_id IN ('bookmarks','memorized')
+            WHERE (ucw.collection_id = 'bookmarks' OR ucw.collection_id LIKE 'memorized%')
               AND cw.hangul IS NOT NULL AND cw.hangul != ''
             UNION ALL
             SELECT kw.hangul as display
             FROM user_collection_words ucw
             JOIN korean_words kw ON kw.id = ucw.word_id
-            WHERE ucw.collection_id IN ('bookmarks','memorized')
+            WHERE (ucw.collection_id = 'bookmarks' OR ucw.collection_id LIKE 'memorized%')
           ) ORDER BY RANDOM() LIMIT ?
         '''
         : '''
@@ -472,12 +546,12 @@ class CollectionDao {
             SELECT c.symbol as display
             FROM user_collection_words ucw
             JOIN characters c ON c.id = ucw.word_id
-            WHERE ucw.collection_id IN ('bookmarks','memorized')
+            WHERE (ucw.collection_id = 'bookmarks' OR ucw.collection_id LIKE 'memorized%')
             UNION ALL
             SELECT cw.simplified as display
             FROM user_collection_words ucw
             JOIN compound_words cw ON cw.id = ucw.word_id
-            WHERE ucw.collection_id IN ('bookmarks','memorized')
+            WHERE (ucw.collection_id = 'bookmarks' OR ucw.collection_id LIKE 'memorized%')
           ) ORDER BY RANDOM() LIMIT ?
         ''';
     final rows = await _db.customSelect(sql,
@@ -551,7 +625,7 @@ class CollectionDao {
         SELECT id, simplified, NULL as traditional, pinyin, hangul, han_viet,
                'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
                NULL as hsk_level, frequency_rank, 'sino_chinese' as origin_type,
-               0 as is_cognate_anchor, 0 as ai_generated
+               0 as is_cognate_anchor, 0 as ai_generated, romaja
         FROM compound_words
         WHERE topik_level = ? AND topik_in_source = 1 AND LENGTH(hangul) >= 2
         UNION ALL
@@ -559,7 +633,7 @@ class CollectionDao {
                COALESCE(romaja, '') as pinyin, hangul, '' as han_viet,
                'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
                NULL as hsk_level, frequency_rank, 'native_korean' as origin_type,
-               0 as is_cognate_anchor, 0 as ai_generated
+               0 as is_cognate_anchor, 0 as ai_generated, COALESCE(romaja, '') as romaja
         FROM korean_words
         WHERE topik_level = ?
       )
@@ -583,6 +657,7 @@ class CollectionDao {
     originType: r.read('origin_type'),
     isCognateAnchor: r.read('is_cognate_anchor'),
     aiGenerated: r.read('ai_generated'),
+    romaja: r.readNullable('romaja'),
     isSinoKorean: 0, batchim: 0, krVerified: 0, pos: null,
     krSynonyms: null, krAntonyms: null, krExample: null, topikInSource: 0,
   );
@@ -612,7 +687,7 @@ class CollectionDao {
         SELECT id, simplified, NULL as traditional, pinyin, hangul, han_viet,
                'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
                NULL as hsk_level, frequency_rank, 'sino_chinese' as origin_type,
-               0 as is_cognate_anchor, 0 as ai_generated
+               0 as is_cognate_anchor, 0 as ai_generated, romaja
         FROM compound_words
         WHERE topik_level IN ($placeholders) AND topik_in_source = 1 AND LENGTH(hangul) >= 2
         UNION ALL
@@ -620,7 +695,7 @@ class CollectionDao {
                COALESCE(romaja, '') as pinyin, hangul, '' as han_viet,
                'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
                NULL as hsk_level, frequency_rank, 'native_korean' as origin_type,
-               0 as is_cognate_anchor, 0 as ai_generated
+               0 as is_cognate_anchor, 0 as ai_generated, COALESCE(romaja, '') as romaja
         FROM korean_words
         WHERE topik_level IN ($placeholders)
       )
@@ -645,7 +720,7 @@ class CollectionDao {
       FROM compound_words
       WHERE id IN (
         SELECT word_id FROM user_collection_words
-        WHERE collection_id IN ('bookmarks', 'memorized')
+        WHERE collection_id = 'bookmarks' OR collection_id LIKE 'memorized%'
       )
       ORDER BY RANDOM() LIMIT ?
     ''', variables: [Variable(n)], readsFrom: {_db.compoundWords, _db.userCollectionWords}).get();
@@ -694,14 +769,49 @@ class CollectionDao {
     )).toList();
   }
 
-  /// Random KR words for daily practice — TOPIK verified words only (compound + native).
+  /// Random KR words for daily practice — the user's saved (bookmarked/memorized)
+  /// KR-eligible words first, then back-filled from the TOPIK corpus (compound +
+  /// native) to reach [n]. Mirrors [getRandomPracticeWords] for Chinese so both
+  /// modes practice the learner's own words before falling back to the corpus.
   Future<List<CompoundWord>> getRandomKrPracticeWords(int n) async {
-    final rows = await _db.customSelect('''
+    // KR-eligible words the user has saved (bookmarks/memorized).
+    final saved = await _db.customSelect('''
       SELECT * FROM (
         SELECT id, simplified, NULL as traditional, pinyin, hangul, han_viet,
                'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
                NULL as hsk_level, frequency_rank, 'sino_chinese' as origin_type,
-               0 as is_cognate_anchor, 0 as ai_generated
+               0 as is_cognate_anchor, 0 as ai_generated, romaja
+        FROM compound_words
+        WHERE topik_in_source = 1 AND LENGTH(hangul) >= 2
+          AND id IN (SELECT word_id FROM user_collection_words
+                     WHERE collection_id = 'bookmarks' OR collection_id LIKE 'memorized%')
+        UNION ALL
+        SELECT id, hangul as simplified, NULL as traditional,
+               COALESCE(romaja,'') as pinyin, hangul, '' as han_viet,
+               'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
+               NULL as hsk_level, frequency_rank, 'native_korean' as origin_type,
+               0 as is_cognate_anchor, 0 as ai_generated, COALESCE(romaja,'') as romaja
+        FROM korean_words
+        WHERE topik_level IS NOT NULL
+          AND id IN (SELECT word_id FROM user_collection_words
+                     WHERE collection_id = 'bookmarks' OR collection_id LIKE 'memorized%')
+      )
+      ORDER BY RANDOM() LIMIT ?
+    ''', variables: [Variable(n)],
+        readsFrom: {_db.compoundWords, _db.koreanWords, _db.userCollectionWords}).get();
+
+    final words = saved.map(_topikRowToWord).toList();
+    if (words.length >= n) return words;
+
+    // Back-fill from the full TOPIK corpus, excluding already-selected ids.
+    final exclude = words.map((w) => "'${w.id}'").join(',');
+    final excludeClause = exclude.isEmpty ? '' : 'WHERE id NOT IN ($exclude)';
+    final fallback = await _db.customSelect('''
+      SELECT * FROM (
+        SELECT id, simplified, NULL as traditional, pinyin, hangul, han_viet,
+               'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
+               NULL as hsk_level, frequency_rank, 'sino_chinese' as origin_type,
+               0 as is_cognate_anchor, 0 as ai_generated, romaja
         FROM compound_words
         WHERE topik_in_source = 1 AND LENGTH(hangul) >= 2
         UNION ALL
@@ -709,14 +819,16 @@ class CollectionDao {
                COALESCE(romaja,'') as pinyin, hangul, '' as han_viet,
                'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
                NULL as hsk_level, frequency_rank, 'native_korean' as origin_type,
-               0 as is_cognate_anchor, 0 as ai_generated
+               0 as is_cognate_anchor, 0 as ai_generated, COALESCE(romaja,'') as romaja
         FROM korean_words
         WHERE topik_level IS NOT NULL
       )
+      $excludeClause
       ORDER BY RANDOM() LIMIT ?
-    ''', variables: [Variable(n)],
+    ''', variables: [Variable(n - words.length)],
         readsFrom: {_db.compoundWords, _db.koreanWords}).get();
-    return rows.map(_topikRowToWord).toList();
+
+    return [...words, ...fallback.map(_topikRowToWord)];
   }
 
   /// Random KR word for the daily-word notification. Stricter than
@@ -729,7 +841,7 @@ class CollectionDao {
         SELECT id, simplified, NULL as traditional, pinyin, hangul, han_viet,
                'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
                NULL as hsk_level, frequency_rank, 'sino_chinese' as origin_type,
-               0 as is_cognate_anchor, 0 as ai_generated
+               0 as is_cognate_anchor, 0 as ai_generated, romaja
         FROM compound_words
         WHERE kr_verified = 1 AND LENGTH(hangul) >= 2
         UNION ALL
@@ -737,7 +849,7 @@ class CollectionDao {
                COALESCE(romaja,'') as pinyin, hangul, '' as han_viet,
                'medium' as han_viet_resonance, NULL as vietnamese_note, english_def,
                NULL as hsk_level, frequency_rank, 'native_korean' as origin_type,
-               0 as is_cognate_anchor, 0 as ai_generated
+               0 as is_cognate_anchor, 0 as ai_generated, COALESCE(romaja,'') as romaja
         FROM korean_words
         WHERE topik_level IS NOT NULL
       )

@@ -71,6 +71,27 @@ class DictCardScreen extends ConsumerWidget {
       }
     });
 
+    // Bridge ZH→KR: when the user toggles to Korean while viewing a Chinese
+    // character and no Korean word is active, populate the KR card with the best
+    // Sino-Korean compound containing that character (reuses getKoreanRelated).
+    // Without this the card drops to a bare "search above" empty state, stranding
+    // the user with no path back to what they were reading.
+    ref.listen<LangMode>(langModeProvider, (prev, next) async {
+      if (next != LangMode.korean || prev == LangMode.korean) return;
+      if (ref.read(activeKrWordProvider) != null) return;
+      final sym = ref.read(activeSymbolProvider);
+      if (sym.isEmpty) return;
+      final related = await ref
+          .read(databaseProvider)
+          .compoundDao
+          .getKoreanRelated([sym], excludeId: '', limit: 1);
+      if (related.isEmpty) return;
+      // Guard against a mode flip-back while the async lookup was in flight.
+      if (ref.read(langModeProvider) != LangMode.korean) return;
+      if (ref.read(activeKrWordProvider) != null) return;
+      ref.read(activeKrWordProvider.notifier).set(related.first);
+    });
+
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(

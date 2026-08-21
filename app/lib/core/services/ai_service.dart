@@ -322,7 +322,7 @@ Viết câu chuyện Chiết tự ngắn (2-3 câu tiếng Việt):''';
 
     final (uri, headers, body) = _buildRequest(
         settings, _storyPrompt(words, isKorean),
-        systemPrompt: _storySystemPrompt(isKorean), maxTokens: 1024);
+        systemPrompt: _storySystemPrompt(isKorean), maxTokens: 3000);
     http.Response? resp;
     for (var attempt = 0; attempt < _maxRetries; attempt++) {
       try {
@@ -348,9 +348,35 @@ Viết câu chuyện Chiết tự ngắn (2-3 câu tiếng Việt):''';
     }
     final text = _extractText(settings.provider, resp.body);
     if (text == null || text.trim().isEmpty) {
+      // A reasoning model (e.g. gpt-oss) can spend the whole token budget on
+      // hidden reasoning and return empty content with finish_reason "length".
+      // Surface that specifically so the user knows to pick a non-reasoning
+      // model or that the budget was exhausted, rather than a raw JSON dump.
+      if (_hitLengthLimit(settings.provider, resp.body)) {
+        throw Exception(
+            'The model used its entire output budget on internal reasoning and '
+            'returned no story. Try a non-reasoning model for this feature '
+            '(e.g. a standard chat model), or a smaller word list.');
+      }
       throw Exception('HTTP 200 but no story text in response:\n${resp.body}');
     }
     return text;
+  }
+
+  /// True when an OpenAI-compatible response was truncated by the token limit
+  /// (finish_reason == "length"), which for reasoning models means the answer
+  /// was crowded out by reasoning tokens.
+  bool _hitLengthLimit(LlmProvider provider, String responseBody) {
+    if (provider != LlmProvider.openai && provider != LlmProvider.custom) {
+      return false;
+    }
+    try {
+      final data = jsonDecode(responseBody) as Map<String, dynamic>;
+      final reason = data['choices']?[0]?['finish_reason'];
+      return reason == 'length';
+    } catch (_) {
+      return false;
+    }
   }
 
   String _storySystemPrompt(bool isKorean) {

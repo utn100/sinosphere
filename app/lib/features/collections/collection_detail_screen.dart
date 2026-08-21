@@ -10,15 +10,18 @@ import '../dict_card/widgets/bookmark_button.dart';
 import '../graph/graph_provider.dart' show koreanGraphSearchProvider;
 import '../shell/app_shell.dart';
 import '../practice/practice_screen.dart';
-import 'collections_screen.dart' show hskMemorizedCountProvider, topikMemorizedCountProvider, userCollectionsProvider;
-
-const _memorizedCollectionId = 'memorized';
+import 'collections_screen.dart' show hskMemorizedCountProvider, topikMemorizedCountProvider, userCollectionsProvider, totalMemorizedCountProvider;
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final collectionItemsProvider =
     FutureProvider.family<List<CollectionItem>, String>((ref, collectionId) =>
         ref.read(databaseProvider).collectionDao.getCollectionItems(collectionId));
+
+// All memorized words for the current mode (keyed by isKorean) — Memorized drill-in.
+final memorizedItemsProvider =
+    FutureProvider.family<List<CollectionItem>, bool>((ref, isKorean) =>
+        ref.read(databaseProvider).collectionDao.getMemorizedItems(isKorean: isKorean));
 
 // ── User collection detail ────────────────────────────────────────────────────
 
@@ -98,6 +101,73 @@ class CollectionDetailScreen extends ConsumerWidget {
           );
         },
         ),  // SafeArea
+      ),
+    );
+  }
+}
+
+/// Read-only drill-in for the "Memorized" folder. Lists every memorized word for
+/// the CURRENT language mode (ZH → Chinese, KR → Korean), never mixed. Backed by
+/// getMemorizedItems, which unions all deck buckets and de-dupes by word.
+class MemorizedDetailScreen extends ConsumerWidget {
+  const MemorizedDetailScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c        = context.colors;
+    final isKorean = ref.watch(langModeProvider) == LangMode.korean;
+    final items    = ref.watch(memorizedItemsProvider(isKorean));
+
+    return Scaffold(
+      backgroundColor: c.bg,
+      appBar: AppBar(
+        title: Text('Memorized',
+            style: TextStyle(color: c.text, fontWeight: FontWeight.w800)),
+        backgroundColor: c.surf,
+        iconTheme: IconThemeData(color: c.text),
+        elevation: 0,
+      ),
+      body: SafeArea(
+        top: false,
+        child: items.when(
+          loading: () => const Center(
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.hanviet)),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (list) {
+            if (list.isEmpty) {
+              return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Image.asset('assets/logo.png', width: 120, height: 120),
+                const SizedBox(height: 12),
+                Text('No memorized words yet.',
+                    style: TextStyle(color: c.textMuted, fontStyle: FontStyle.italic)),
+              ]));
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: list.length,
+              separatorBuilder: (_, _) =>
+                  Divider(height: 0.5, thickness: 0.5, color: c.border, indent: 16),
+              itemBuilder: (_, i) {
+                final item = list[i];
+                final display = isKorean && item.hangul != null ? item.hangul! : item.display;
+                return _ItemRow(
+                  item: item,
+                  display: display,
+                  isKorean: isKorean,
+                  onTap: () => showCollectionWordSheet(context, ref,
+                    display:    display,
+                    simplified: item.display,
+                    hanViet:    item.hanViet,
+                    pinyin:     item.pinyin,
+                    englishDef: item.englishDef,
+                    hangul:     isKorean ? item.hangul : null,
+                    romaja:     isKorean ? item.pinyin : null,
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -209,10 +279,12 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
   }
 
   Future<void> _toggleMemorized(String wordId) async {
-    await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
+    await ref.read(databaseProvider).collectionDao
+        .toggleMemorized(CollectionDao.hskScope(widget.hskLevel), wordId);
     ref.invalidate(hskMemorizedCountProvider(widget.hskLevel));
     ref.invalidate(userCollectionsProvider);
-    ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
+    ref.invalidate(totalMemorizedCountProvider);
+    ref.invalidate(memorizedItemsProvider);
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -238,7 +310,8 @@ class _HskDetailScreenState extends ConsumerState<HskDetailScreen> {
     if (ok != true) return;
     await ref.read(databaseProvider).collectionDao.resetMemorized(widget.hskLevel);
     ref.invalidate(hskMemorizedCountProvider(widget.hskLevel));
-    ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
+    ref.invalidate(totalMemorizedCountProvider);
+    ref.invalidate(memorizedItemsProvider);
     setState(() => _memorized = {});
   }
 
@@ -714,10 +787,10 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
     final total     = await db.collectionDao.getTopicWordCount(widget.topicId, krOnly: isKorean);
     final words     = await db.collectionDao.getTopicWords(
         widget.topicId, offset: page * _pageSize, limit: _pageSize, krOnly: isKorean);
-    // Load memorized state from DB (shared 'memorized' collection)
-    final allMemorized = await db.collectionDao.getAllMemorizedWordIds();
+    // Load memorized state scoped to THIS topic bucket (never other decks)
+    final memorized = await db.collectionDao
+        .getMemorizedWordIdsByScope(CollectionDao.topicScope(widget.topicId));
     // Store full set (not page-scoped) so marks persist across page navigation
-    final memorized = allMemorized;
     if (!mounted) return;
     setState(() {
       _page      = page;
@@ -733,9 +806,11 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
   }
 
   Future<void> _toggleMemorized(String wordId) async {
-    await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
+    await ref.read(databaseProvider).collectionDao
+        .toggleMemorized(CollectionDao.topicScope(widget.topicId), wordId);
     ref.invalidate(userCollectionsProvider);
-    ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
+    ref.invalidate(totalMemorizedCountProvider);
+    ref.invalidate(memorizedItemsProvider);
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -765,8 +840,10 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
             TextButton.icon(
               onPressed: () async {
                 await ref.read(databaseProvider).collectionDao
-                    .resetMemorizedForWords(_memorized.toList());
-                ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
+                    .resetMemorizedByScope(CollectionDao.topicScope(widget.topicId));
+                ref.invalidate(userCollectionsProvider);
+                ref.invalidate(totalMemorizedCountProvider);
+    ref.invalidate(memorizedItemsProvider);
                 setState(() => _memorized = {});
               },
               icon: const Icon(Icons.refresh, size: 16, color: AppTheme.hanviet),
@@ -800,9 +877,10 @@ class _TopicDetailScreenState extends ConsumerState<TopicDetailScreen> {
                           TextButton(
                             onPressed: () async {
                               await ref.read(databaseProvider).collectionDao
-                                  .resetMemorizedForWords(_memorized.toList());
+                                  .resetMemorizedByScope(CollectionDao.topicScope(widget.topicId));
                               ref.invalidate(userCollectionsProvider);
-                              ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
+                              ref.invalidate(totalMemorizedCountProvider);
+    ref.invalidate(memorizedItemsProvider);
                               setState(() => _memorized = {});
                             },
                             child: const Text('Reset', style: TextStyle(color: AppTheme.hanviet))),
@@ -1014,9 +1092,12 @@ class _TopikDetailScreenState extends ConsumerState<TopikDetailScreen> {
   }
 
   Future<void> _toggleMemorized(String wordId) async {
-    await ref.read(databaseProvider).collectionDao.toggleMemorized(wordId);
+    await ref.read(databaseProvider).collectionDao
+        .toggleMemorized(CollectionDao.topikScope(widget.topikLevels), wordId);
     ref.invalidate(topikMemorizedCountProvider(widget.topikLevels.join(',')));
     ref.invalidate(userCollectionsProvider);
+    ref.invalidate(totalMemorizedCountProvider);
+    ref.invalidate(memorizedItemsProvider);
     setState(() {
       if (_memorized.contains(wordId)) {
         _memorized = Set.from(_memorized)..remove(wordId);
@@ -1040,12 +1121,11 @@ class _TopikDetailScreenState extends ConsumerState<TopikDetailScreen> {
       ),
     );
     if (ok != true) return;
-    for (final level in widget.topikLevels) {
-      await ref.read(databaseProvider).collectionDao
-          .resetMemorizedByTopik(level);
-    }
+    await ref.read(databaseProvider).collectionDao
+        .resetMemorizedByScope(CollectionDao.topikScope(widget.topikLevels));
     ref.invalidate(topikMemorizedCountProvider(widget.topikLevels.join(',')));
-    ref.invalidate(collectionItemsProvider(_memorizedCollectionId));
+    ref.invalidate(totalMemorizedCountProvider);
+    ref.invalidate(memorizedItemsProvider);
     setState(() => _memorized = {});
   }
 

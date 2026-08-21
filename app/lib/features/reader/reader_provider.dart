@@ -153,6 +153,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   void setMode(AnnotationMode m) => state = state.copyWith(mode: m);
 
+  /// Reset annotated output. Called when the language mode changes so tokens
+  /// segmented under the old language aren't left rendered under the new one.
+  /// Preserves the loaded KR index; only clears user-visible reader content.
+  void clearAnnotation() {
+    state = const ReaderState();
+  }
+
   void setExtractingOcr(bool v) => state = state.copyWith(isExtractingOcr: v);
 
   void toggleHarvest() => state = state.copyWith(showHarvest: !state.showHarvest);

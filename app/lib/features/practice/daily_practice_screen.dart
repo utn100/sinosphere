@@ -19,6 +19,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
 
   List<CompoundWord> _words = [];
   List<CompoundWord> _retryQueue = [];
+  int _sessionCount = 0; // actual words this session (may be < _sessionSize)
   int _index = 0;
   bool _revealed = false;
   bool _loading = true;
@@ -43,7 +44,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
             .getRandomKrPracticeWords(_sessionSize)
         : await ref.read(databaseProvider).collectionDao
             .getRandomPracticeWords(_sessionSize);
-    if (mounted) setState(() { _words = words; _loading = false; });
+    if (mounted) setState(() { _words = words; _sessionCount = words.length; _loading = false; });
   }
 
   CompoundWord get _current => _words[_index];
@@ -360,7 +361,8 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
   }
 
   Widget _buildSummary(BuildContext context, dynamic c) {
-    final pct = (_correct / _sessionSize * 100).clamp(0, 100).round();
+    final total = _sessionCount == 0 ? _sessionSize : _sessionCount;
+    final pct = (_correct / total * 100).clamp(0, 100).round();
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(
@@ -371,7 +373,7 @@ class _DailyPracticeScreenState extends ConsumerState<DailyPracticeScreen> {
               Text(pct >= 80 ? '🎉' : pct >= 50 ? '💪' : '📚',
                   style: const TextStyle(fontSize: 64)),
               const SizedBox(height: 24),
-              Text('$_correct / $_sessionSize',
+              Text('$_correct / $total',
                   style: TextStyle(color: c.text, fontSize: 48,
                       fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
