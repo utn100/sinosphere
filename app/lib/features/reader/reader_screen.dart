@@ -159,6 +159,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       }
     });
 
+    // When the language mode changes mid-session, tokens segmented under the old
+    // language are invalid under the new one (e.g. Chinese tokens rendered by the
+    // Korean code path show blank romaja). Clear the reader so the user starts
+    // fresh in the new language instead of seeing stale output.
+    ref.listen(langModeProvider, (prev, next) {
+      if (prev != null && prev != next) {
+        ref.read(readerProvider.notifier).clearAnnotation();
+        _textCtrl.clear();
+      }
+    });
+
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(

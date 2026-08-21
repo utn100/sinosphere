@@ -85,6 +85,16 @@ final topikMemorizedCountProvider =
   },
 );
 
+// Total memorized words for the current language mode (keyed by isKorean) —
+// drives the count on the Memorized folder card. Mode-filtered so ZH and KR
+// counts never mix. Invalidated by every deck's toggle/reset.
+final totalMemorizedCountProvider = FutureProvider.family<int, bool>(
+  (ref, isKorean) => ref
+      .read(databaseProvider)
+      .collectionDao
+      .getTotalMemorizedCount(isKorean: isKorean),
+);
+
 class CollectionsScreen extends ConsumerWidget {
   const CollectionsScreen({super.key});
 
@@ -538,6 +548,7 @@ class _UserCollectionsList extends ConsumerWidget {
             child: CircularProgressIndicator(strokeWidth: 2)),
         error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
         data: (list) {
+          final isKorean = ref.watch(langModeProvider) == LangMode.korean;
           final user = list.where((col) =>
               col.id != bookmarksCollectionId).toList();
           if (user.isEmpty) {
@@ -555,10 +566,13 @@ class _UserCollectionsList extends ConsumerWidget {
             delegate: SliverChildBuilderDelegate(
               (ctx, i) {
                 final col = user[i];
+                final isMemorized = col.id == memorizedCollectionId;
                 return GestureDetector(
                   onTap: () => Navigator.push(ctx, MaterialPageRoute(
-                      builder: (_) => CollectionDetailScreen(
-                          collectionId: col.id, collectionName: col.name))),
+                      builder: (_) => isMemorized
+                          ? const MemorizedDetailScreen()
+                          : CollectionDetailScreen(
+                              collectionId: col.id, collectionName: col.name))),
                   child: Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(14),
@@ -575,22 +589,37 @@ class _UserCollectionsList extends ConsumerWidget {
                           style: const TextStyle(fontSize: 22)),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(col.name,
-                            style: TextStyle(
-                                color: c.text, fontSize: 14,
-                                fontWeight: FontWeight.w600)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(col.name,
+                                style: TextStyle(
+                                    color: c.text, fontSize: 14,
+                                    fontWeight: FontWeight.w600)),
+                            // Memorized folder shows a live count for the current mode.
+                            if (isMemorized)
+                              Consumer(builder: (_, r, _) {
+                                final n = r.watch(totalMemorizedCountProvider(isKorean))
+                                    .maybeWhen(data: (v) => v, orElse: () => 0);
+                                return Text('$n word${n == 1 ? '' : 's'}',
+                                    style: TextStyle(color: c.textMuted, fontSize: 11));
+                              }),
+                          ],
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline,
-                            color: AppTheme.textMuted, size: 18),
-                        onPressed: () async {
-                          await ref
-                              .read(databaseProvider)
-                              .collectionDao
-                              .deleteCollection(col.id);
-                          ref.invalidate(userCollectionsProvider);
-                        },
-                      ),
+                      // Protect the Memorized folder from deletion.
+                      if (!isMemorized)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: AppTheme.textMuted, size: 18),
+                          onPressed: () async {
+                            await ref
+                                .read(databaseProvider)
+                                .collectionDao
+                                .deleteCollection(col.id);
+                            ref.invalidate(userCollectionsProvider);
+                          },
+                        ),
                     ],
                   ),
                   ),  // Container

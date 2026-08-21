@@ -50,6 +50,9 @@ class PracticeReadingNotifier extends Notifier<PracticeReadingState> {
 
   @override
   PracticeReadingState build() {
+    // Rebuild (and re-check the pool) whenever the language mode changes, so the
+    // word count / phase reflect the active language rather than a stale pool.
+    ref.watch(langModeProvider);
     // Kick off the initial pool/config check; return loading synchronously.
     Future.microtask(refresh);
     return const PracticeReadingState();
